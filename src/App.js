@@ -96,24 +96,26 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Assignment as AssignmentIcon,
-  LocalShipping as ShippingIcon,
-  AttachMoney as MoneyIcon,
-  Receipt as ReceiptIcon,
-  Assessment as AssessmentIcon,
-  Business as BusinessIcon,
-  AccountBalance as FinanceIcon,
-  Analytics as AnalyticsIcon,
-  ShoppingCart as PurchaseIcon,
-  Warning as WarningIcon,
-  TrendingUp as TrendingUpIcon,
-  Category as CategoryIcon,
-  Inventory as InventoryIcon,
-  TrackChanges as CourierIcon,
-} from '@mui/icons-material';
+    Menu as MenuIcon,
+    Dashboard as DashboardIcon,
+    People as PeopleIcon,
+    Assignment as AssignmentIcon,
+    LocalShipping as ShippingIcon,
+    AttachMoney as MoneyIcon,
+    Receipt as ReceiptIcon,
+    Assessment as AssessmentIcon,
+    Business as BusinessIcon,
+    AccountBalance as AccountBalanceIcon,
+    Analytics as AnalyticsIcon,
+    ShoppingCart as PurchaseIcon,
+    Warning as WarningIcon,
+    TrendingUp as TrendingUpIcon,
+    Category as CategoryIcon,
+    Inventory as InventoryIcon,
+    TrackChanges as CourierIcon,
+    Schedule as ScheduleIcon,
+    AccountBalanceWallet as FinanceIcon,
+  } from '@mui/icons-material';
 
 // Components
 import Dashboard from './components/Dashboard';
@@ -131,6 +133,7 @@ import CourierManagement from './components/CourierManagement';
 import ProfitLossReport from './components/ProfitLossReport';
 import BalanceSheetReport from './components/BalanceSheetReport';
 import CashFlowReport from './components/CashFlowReport';
+import AgingReport from './components/AgingReport';
 
 const drawerWidth = 280;
 
@@ -155,8 +158,9 @@ const menuItems = [
   // Financial Management
   { text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices', category: 'finance' },
   { text: 'Profit & Loss', icon: <TrendingUpIcon />, path: '/profit-loss', category: 'finance' },
-  { text: 'Balance Sheet', icon: <BalanceIcon />, path: '/balance-sheet', category: 'finance' },
+  { text: 'Balance Sheet', icon: <AccountBalanceIcon />, path: '/balance-sheet', category: 'finance' },
   { text: 'Cash Flow', icon: <MoneyIcon />, path: '/cash-flow', category: 'finance' },
+  { text: 'AR/AP Aging', icon: <ScheduleIcon />, path: '/aging-report', category: 'finance' },
   { text: 'Finance Reports', icon: <FinanceIcon />, path: '/finance-reports', category: 'finance' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics', category: 'finance' },
 ];
@@ -322,6 +326,7 @@ function App() {
           <Route path="/profit-loss" element={<ProfitLossReport />} />
           <Route path="/balance-sheet" element={<BalanceSheetReport />} />
           <Route path="/cash-flow" element={<CashFlowReport />} />
+          <Route path="/aging-report" element={<AgingReport />} />
           <Route path="/finance-reports" element={<FinanceReporting />} />
           <Route path="/analytics" element={<Analytics />} />
         </Routes>
