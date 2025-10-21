@@ -234,7 +234,7 @@ const Dashboard = () => {
             Dashboard
           </Typography>
           <Typography variant="body1" color="textSecondary">
-            Welcome to Bakhtera One - Your Advanced Freight Forwarding Management System
+            Welcome to Bakhtera1 - Your Advanced Freight Forwarding Management System
           </Typography>
         </Box>
         <Box display="flex" gap={2} alignItems="center">

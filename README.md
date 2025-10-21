@@ -1,4 +1,4 @@
-# 🚛 Bakhtera One - Advanced Freight Forwarding Management System
+# 🚛 Bakhtera1 - Advanced Freight Forwarding Management System
 
 A comprehensive freight forwarding management system built with React.js and Material-UI, designed for Indonesian logistics companies.
 

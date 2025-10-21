@@ -87,7 +87,6 @@ import notificationService from '../services/notificationService';
 import { formatCurrency } from '../services/currencyUtils';
 
 // Import optimized components and hooks
-import CargoItemsManager from './CargoItemsManager';
 import ErrorBoundary, { FormErrorBoundary } from './ErrorBoundary';
 
 /**
