@@ -130,6 +130,7 @@ import WarehouseManagement from './components/WarehouseManagement';
 import CourierManagement from './components/CourierManagement';
 import ProfitLossReport from './components/ProfitLossReport';
 import BalanceSheetReport from './components/BalanceSheetReport';
+import CashFlowReport from './components/CashFlowReport';
 
 const drawerWidth = 280;
 
@@ -155,6 +156,7 @@ const menuItems = [
   { text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices', category: 'finance' },
   { text: 'Profit & Loss', icon: <TrendingUpIcon />, path: '/profit-loss', category: 'finance' },
   { text: 'Balance Sheet', icon: <BalanceIcon />, path: '/balance-sheet', category: 'finance' },
+  { text: 'Cash Flow', icon: <MoneyIcon />, path: '/cash-flow', category: 'finance' },
   { text: 'Finance Reports', icon: <FinanceIcon />, path: '/finance-reports', category: 'finance' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics', category: 'finance' },
 ];
@@ -319,6 +321,7 @@ function App() {
           <Route path="/invoices" element={<InvoiceManagement />} />
           <Route path="/profit-loss" element={<ProfitLossReport />} />
           <Route path="/balance-sheet" element={<BalanceSheetReport />} />
+          <Route path="/cash-flow" element={<CashFlowReport />} />
           <Route path="/finance-reports" element={<FinanceReporting />} />
           <Route path="/analytics" element={<Analytics />} />
         </Routes>
