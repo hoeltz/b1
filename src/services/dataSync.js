@@ -148,6 +148,15 @@ const dataSyncService = {
     }
   },
 
+  getSellingCosts: async () => {
+    try {
+      return sellingCostService.getAll() || [];
+    } catch (error) {
+      console.error('Error getting selling costs:', error);
+      return [];
+    }
+  },
+
   createOperationalCost: async (costData) => {
     try {
       return operationalCostService.create(costData);

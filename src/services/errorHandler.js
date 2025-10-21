@@ -1,5 +1,6 @@
 // Basic error handling utilities (replacement for deleted complex errorHandler)
 import React, { useState } from 'react';
+
 export const FIELD_STATES = {
   IDLE: 'idle',
   VALIDATING: 'validating',
@@ -23,6 +24,25 @@ export const getFieldStateIcon = (state) => {
     case FIELD_STATES.VALIDATING: return '⟳';
     default: return '';
   }
+};
+
+// Error handling functions
+export const handleError = (error, context = '') => {
+  console.error(`Error${context ? ` in ${context}` : ''}:`, error);
+  return error.message || 'An unexpected error occurred';
+};
+
+// Toast notification functions
+export const showSuccessToast = (message, duration = 4000) => {
+  console.log('✅ Success:', message);
+  // In a real app, this would show a success toast notification
+  return { type: 'success', message, duration };
+};
+
+export const showErrorToast = (message, duration = 4000) => {
+  console.error('❌ Error:', message);
+  // In a real app, this would show an error toast notification
+  return { type: 'error', message, duration };
 };
 
 export const extendedValidationPatterns = {
@@ -114,14 +134,30 @@ export const useFormValidation = (initialValues, rules) => {
     setIsSubmitting(false);
   };
 
+  const getFieldProps = (name) => ({
+    name,
+    value: values[name] || '',
+    onChange: (e) => handleFieldChange(name, e.target.value),
+    onBlur: () => handleFieldBlur(name),
+    error: !!errors[name],
+    helperText: errors[name]
+  });
+
+  const handleFieldBlur = (name) => {
+    // Optional: Add blur handling logic here if needed
+    console.log(`Field ${name} blurred`);
+  };
+
   return {
     values,
     errors,
     fieldStates,
     isSubmitting,
     handleFieldChange,
+    handleFieldBlur,
     handleSubmit,
     reset,
-    setValues
+    setValues,
+    getFieldProps
   };
 };

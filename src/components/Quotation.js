@@ -62,6 +62,7 @@ import {
 import {
   customerService,
   vendorService,
+  quotationService,
 } from '../services/localStorage';
 import dataSyncService from '../services/dataSync';
 import {
@@ -72,6 +73,8 @@ import {
   SERVICE_TYPES,
   STANDARD_COSTS,
   ORDER_TYPES,
+  INDONESIAN_CAPITALS_LIST,
+  INTERNATIONAL_COUNTRIES_LIST,
 } from '../data/locationData';
 import {
   handleError,
@@ -85,6 +88,17 @@ import {
 } from '../services/errorHandler';
 import notificationService from '../services/notificationService';
 import { formatCurrency } from '../services/currencyUtils';
+
+// Helper function to format currency input
+const formatCurrencyInput = (value) => {
+  // Remove any non-numeric characters except decimal point
+  const numericValue = value.replace(/[^\d.]/g, '');
+  const parts = numericValue.split('.');
+  if (parts.length > 2) {
+    return parts[0] + '.' + parts.slice(1).join('');
+  }
+  return numericValue;
+};
 
 // Import optimized components and hooks
 import ErrorBoundary, { FormErrorBoundary } from './ErrorBoundary';
@@ -104,6 +118,8 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     customerAddress: '',
     customerPhone: '',
     customerEmail: '',
+    // Route type selection
+    routeType: 'Domestic', // Domestic or International
     orderType: 'REG',
     packageType: 'Domestic',
     origin: '',
@@ -149,7 +165,7 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     forceMajeureTerms: 'Neither party shall be liable for any failure or delay in performance under this agreement which is due to fire, flood, earthquake, elements of nature or acts of God, acts of war, terrorism, riots, civil disorders, rebellions or revolutions, or any other cause beyond the reasonable control of such party.',
     additionalTerms: '',
     includeStandardTerms: true,
-    // Cargo items array
+    // Cargo items array - updated structure
     cargoItems: [],
     // Status tracking
     status: 'Draft',
@@ -185,7 +201,7 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     const typeCode = values.orderType === 'REG' ? 'R' : values.orderType === 'PAM' ? 'P' : 'J';
 
     // Get current quotations for this month to determine next number
-    const quotations = JSON.parse(localStorage.getItem('freightflow_quotations') || '[]');
+    const quotations = quotationService.getAll() || [];
     const currentMonthQuotations = quotations.filter(q => {
       if (!q.createdAt) return false;
       const createdDate = new Date(q.createdAt);
@@ -217,9 +233,8 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
       description: '',
       weight: 0,
       volume: 0,
-      value: 0,
-      valueUSD: 0,
-      currency: 'IDR',
+      value: 0, // Single value field
+      currency: 'IDR', // Currency selection for the value
       hsCode: '',
       hsCodeDescription: '',
       importDuty: 0,
@@ -280,7 +295,7 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     // Calculate cargo value for tax calculation from actual cargo items
     const cargoValueForTax = values.cargoItems?.reduce((total, item) => {
       const itemValue = item.currency === 'USD' ?
-        (item.valueUSD || 0) * (values.exchangeRate || 15000) :
+        (item.value || 0) * (values.exchangeRate || 15000) :
         (item.value || 0);
       return total + (itemValue || 0);
     }, 0) || 0;
@@ -523,27 +538,81 @@ const RouteServiceTab = memo(({
   FIELD_STATES,
   handleFieldChange
 }) => {
+  // Get location options based on route type
+  const getLocationOptions = () => {
+    if (values.routeType === 'International') {
+      return INTERNATIONAL_COUNTRIES_LIST;
+    }
+    return INDONESIAN_CAPITALS_LIST;
+  };
+
+  const locationOptions = getLocationOptions();
+
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} sm={6}>
-        <TextField
-          fullWidth
-          label="Origin"
+        <FormControl fullWidth>
+          <InputLabel>Route Type</InputLabel>
+          <Select
+            name="routeType"
+            value={values.routeType || 'Domestic'}
+            onChange={(e) => {
+              handleFieldChange('routeType', e.target.value);
+              // Clear origin and destination when route type changes
+              handleFieldChange('origin', '');
+              handleFieldChange('destination', '');
+            }}
+            label="Route Type"
+          >
+            <MenuItem value="Domestic">Domestic</MenuItem>
+            <MenuItem value="International">International</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+
+      <Grid item xs={12} sm={6}>
+        <Autocomplete
+          freeSolo
+          options={locationOptions}
           value={values.origin || ''}
-          onChange={(e) => handleFieldChange('origin', e.target.value)}
-          {...getFieldProps('origin')}
-          color={getFieldStateColor(fieldStates.origin)}
+          onChange={(event, newValue) => {
+            handleFieldChange('origin', newValue || '');
+          }}
+          onInputChange={(event, newInputValue) => {
+            handleFieldChange('origin', newInputValue);
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              fullWidth
+              label={values.routeType === 'International' ? 'Origin Country' : 'Origin City'}
+              {...getFieldProps('origin')}
+              color={getFieldStateColor(fieldStates.origin)}
+            />
+          )}
         />
       </Grid>
 
       <Grid item xs={12} sm={6}>
-        <TextField
-          fullWidth
-          label="Destination"
+        <Autocomplete
+          freeSolo
+          options={locationOptions}
           value={values.destination || ''}
-          onChange={(e) => handleFieldChange('destination', e.target.value)}
-          {...getFieldProps('destination')}
-          color={getFieldStateColor(fieldStates.destination)}
+          onChange={(event, newValue) => {
+            handleFieldChange('destination', newValue || '');
+          }}
+          onInputChange={(event, newInputValue) => {
+            handleFieldChange('destination', newInputValue);
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              fullWidth
+              label={values.routeType === 'International' ? 'Destination Country' : 'Destination City'}
+              {...getFieldProps('destination')}
+              color={getFieldStateColor(fieldStates.destination)}
+            />
+          )}
         />
       </Grid>
 
@@ -714,27 +783,26 @@ const CargoDetailsTab = memo(({
                 />
               </Grid>
 
-              <Grid item xs={12} sm={3}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Value (IDR)"
+                  label={`Value (${item.currency || 'IDR'})`}
                   type="number"
                   value={item.value || 0}
-                  onChange={(e) => onUpdateItem(item.id, 'value', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const numericValue = parseFloat(e.target.value) || 0;
+                    onUpdateItem(item.id, 'value', numericValue);
+                  }}
+                  onBlur={(e) => {
+                    // Format the value when field loses focus
+                    const numericValue = parseFloat(e.target.value) || 0;
+                    const formattedValue = formatCurrencyInput(numericValue.toString());
+                    onUpdateItem(item.id, 'value', formattedValue);
+                  }}
                 />
               </Grid>
 
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  label="Value (USD)"
-                  type="number"
-                  value={item.valueUSD || 0}
-                  onChange={(e) => onUpdateItem(item.id, 'valueUSD', parseFloat(e.target.value) || 0)}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={3}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Currency</InputLabel>
                   <Select
@@ -1362,8 +1430,10 @@ const Quotation = () => {
         }
 
         // Load quotations
-        const quotationsData = JSON.parse(localStorage.getItem('freightflow_quotations') || '[]');
-        setQuotations(quotationsData);
+        if (quotationService?.getAll) {
+          const quotationsData = quotationService.getAll() || [];
+          setQuotations(quotationsData);
+        }
 
       } catch (error) {
         console.error('Error loading data:', error);
@@ -1386,31 +1456,24 @@ const Quotation = () => {
 
   const handleSave = useCallback(async (quotationData) => {
     try {
-      const quotationsData = JSON.parse(localStorage.getItem('freightflow_quotations') || '[]');
-
       if (selectedQuotation) {
         // Update existing quotation
-        const index = quotationsData.findIndex(q => q.id === selectedQuotation.id);
-        if (index !== -1) {
-          quotationsData[index] = { ...quotationData, id: selectedQuotation.id, updatedAt: new Date().toISOString() };
-          localStorage.setItem('freightflow_quotations', JSON.stringify(quotationsData));
+        const updatedQuotation = await quotationService.update(selectedQuotation.id, quotationData);
+        if (updatedQuotation) {
+          const quotationsData = quotationService.getAll() || [];
           setQuotations(quotationsData);
           notificationService.showSuccess('Quotation updated successfully');
-          return quotationsData[index];
+          return updatedQuotation;
         }
       } else {
         // Create new quotation
-        const newQuotation = {
-          ...quotationData,
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        quotationsData.push(newQuotation);
-        localStorage.setItem('freightflow_quotations', JSON.stringify(quotationsData));
-        setQuotations(quotationsData);
-        notificationService.showSuccess(`Quotation ${newQuotation.quotationNumber} created successfully`);
-        return newQuotation;
+        const newQuotation = await quotationService.create(quotationData);
+        if (newQuotation) {
+          const quotationsData = quotationService.getAll() || [];
+          setQuotations(quotationsData);
+          notificationService.showSuccess(`Quotation ${newQuotation.quotationNumber} created successfully`);
+          return newQuotation;
+        }
       }
     } catch (error) {
       notificationService.showError(`Failed to save quotation: ${error.message}`);
@@ -1458,21 +1521,23 @@ const Quotation = () => {
       doc.text('ROUTE & SERVICE', 20, 190);
 
       doc.setFont('helvetica', 'normal');
-      doc.text(`Service Type: ${values.serviceType || 'N/A'}`, 20, 205);
-      doc.text(`Package Type: ${values.packageType || 'N/A'}`, 20, 215);
-      doc.text(`Priority: ${values.priority || 'Normal'}`, 20, 225);
+      doc.text(`Route Type: ${values.routeType || 'Domestic'}`, 20, 205);
+      doc.text(`Service Type: ${values.serviceType || 'N/A'}`, 20, 215);
+      doc.text(`Package Type: ${values.packageType || 'N/A'}`, 20, 225);
+      doc.text(`Priority: ${values.priority || 'Normal'}`, 20, 235);
 
       // Service details
       doc.setFont('helvetica', 'bold');
       doc.text('SERVICE DETAILS', 20, 255);
 
       doc.setFont('helvetica', 'normal');
-      doc.text(`Service Type: ${values.serviceType || 'N/A'}`, 20, 270);
-      doc.text(`Package Type: ${values.packageType || 'N/A'}`, 20, 285);
-      doc.text(`Priority: ${values.priority || 'Normal'}`, 20, 300);
+      doc.text(`Route Type: ${values.routeType || 'Domestic'}`, 20, 270);
+      doc.text(`Service Type: ${values.serviceType || 'N/A'}`, 20, 285);
+      doc.text(`Package Type: ${values.packageType || 'N/A'}`, 20, 300);
+      doc.text(`Priority: ${values.priority || 'Normal'}`, 20, 315);
 
       // Cost breakdown
-      let finalY = 320;
+      let finalY = 335;
 
       // Additional service costs
       if (values.customsClearanceFee || values.documentationFee || values.thcFee || values.otherFees) {
@@ -1592,8 +1657,7 @@ const Quotation = () => {
           'Description': item.description || 'N/A',
           'Weight (kg)': item.weight || 0,
           'Volume (cbm)': item.volume || 0,
-          'Value (IDR)': item.value || 0,
-          'Value (USD)': item.valueUSD || 0,
+          'Value': item.value || 0,
           'Currency': item.currency || 'IDR',
           'HS Code': item.hsCode || 'N/A',
           'Freight Cost (IDR)': item.freightCost || 0,
@@ -1909,7 +1973,7 @@ const Quotation = () => {
                                   {item.description || `Item ${index + 1}`}: {item.weight}kg, {item.volume}cbm
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary">
-                                  Value: {item.currency} {item.currency === 'USD' ? (item.valueUSD || 0) : (item.value || 0)}
+                                  Value: {item.currency} {formatCurrency(item.value || 0, item.currency)}
                                 </Typography>
                               </Box>
                             )) || (

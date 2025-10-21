@@ -1137,17 +1137,19 @@ export const hsCodeService = {
 
 // Initialize sample data
 export const initializeSampleData = () => {
-  // Clear all existing data first to ensure clean state
-  localStorage.removeItem('freightflow_customers');
-  localStorage.removeItem('freightflow_sales_orders');
-  localStorage.removeItem('freightflow_cargo');
-  localStorage.removeItem('freightflow_shipments');
-  localStorage.removeItem('freightflow_operational_costs');
-  localStorage.removeItem('freightflow_selling_costs');
-  localStorage.removeItem('freightflow_vendors');
-  localStorage.removeItem('freightflow_invoices');
+  try {
+    // Clear all existing data first to ensure clean state
+    localStorage.removeItem('freightflow_customers');
+    localStorage.removeItem('freightflow_sales_orders');
+    localStorage.removeItem('freightflow_cargo');
+    localStorage.removeItem('freightflow_shipments');
+    localStorage.removeItem('freightflow_operational_costs');
+    localStorage.removeItem('freightflow_selling_costs');
+    localStorage.removeItem('freightflow_vendors');
+    localStorage.removeItem('freightflow_invoices');
+    localStorage.removeItem('freightflow_hs_codes');
 
-  console.log('🧹 Cleared all existing sample data');
+    console.log('🧹 Cleared all existing sample data');
 
   // Create 1 sample customer
   const sampleCustomer = customerService.create({
@@ -1860,7 +1862,10 @@ export const initializeSampleData = () => {
   console.log('   🚛 Vendor:', sampleVendor.name);
   console.log('   💰 Operational Costs: 5 items linked to sales order');
   console.log('   🧾 Invoice: Generated from sales order');
-};
+    } catch (error) {
+      console.error('❌ Error during sample data initialization:', error);
+    }
+  };
 
 // Function to reset all data and create clean sample
 export const resetToCleanSample = () => {
@@ -1889,4 +1894,79 @@ export default {
   invoiceService,
   hsCodeService,
   initializeSampleData,
+};
+
+// Quotation Service
+export const quotationService = {
+  getAll: () => getFromStorage('freightflow_quotations'),
+
+  getById: (id) => {
+    if (!id) return null;
+    const quotations = getFromStorage('freightflow_quotations');
+    return quotations.find(quotation => quotation.id === id) || null;
+  },
+
+  create: (quotation) => {
+    try {
+      const quotations = getFromStorage('freightflow_quotations');
+      const newQuotation = {
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'Draft',
+        ...quotation,
+      };
+
+      quotations.push(newQuotation);
+      return saveToStorage('freightflow_quotations', quotations) ? newQuotation : null;
+    } catch (error) {
+      console.error('Error creating quotation:', error.message);
+      throw error;
+    }
+  },
+
+  update: (id, quotation) => {
+    try {
+      if (!id) throw new Error('Quotation ID is required');
+
+      const quotations = getFromStorage('freightflow_quotations');
+      const index = quotations.findIndex(q => q.id === id);
+
+      if (index === -1) {
+        throw new Error('Quotation not found');
+      }
+
+      const updatedQuotation = {
+        ...quotations[index],
+        ...quotation,
+        id,
+        updatedAt: new Date().toISOString(),
+      };
+
+      quotations[index] = updatedQuotation;
+      return saveToStorage('freightflow_quotations', quotations) ? updatedQuotation : null;
+    } catch (error) {
+      console.error('Error updating quotation:', error.message);
+      throw error;
+    }
+  },
+
+  delete: (id) => {
+    try {
+      if (!id) throw new Error('Quotation ID is required');
+
+      const quotations = getFromStorage('freightflow_quotations');
+      const quotationExists = quotations.some(q => q.id === id);
+
+      if (!quotationExists) {
+        throw new Error('Quotation not found');
+      }
+
+      const filteredQuotations = quotations.filter(q => q.id !== id);
+      return saveToStorage('freightflow_quotations', filteredQuotations);
+    } catch (error) {
+      console.error('Error deleting quotation:', error.message);
+      throw error;
+    }
+  },
 };

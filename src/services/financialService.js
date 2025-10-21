@@ -53,11 +53,12 @@ const financialService = {
   calculatePL: async (startDate, endDate) => {
     try {
       // Get data from various sources
-      const [customers, orders, invoices] = await Promise.all([
+      const [customers, orders, invoices, operationalCosts, sellingCosts] = await Promise.all([
         dataSyncService.getCustomers(),
         dataSyncService.getSalesOrders(),
-        // Mock invoices data for now
-        Promise.resolve([])
+        Promise.resolve([]),
+        dataSyncService.getOperationalCosts(),
+        dataSyncService.getSellingCosts()
       ]);
 
       // Filter orders by date range
@@ -66,28 +67,25 @@ const financialService = {
         return orderDate >= startDate && orderDate <= endDate;
       });
 
-      // Calculate Revenue
-      const totalRevenue = filteredOrders
-        .filter(order => order.status === 'Delivered')
-        .reduce((sum, order) => sum + (parseFloat(order.sellingPrice) || 0), 0);
+      // Calculate Revenue from delivered orders
+      const deliveredOrders = filteredOrders.filter(order => order.status === 'Delivered');
+      const totalRevenue = deliveredOrders.reduce((sum, order) => sum + (parseFloat(order.sellingPrice) || 0), 0);
 
-      // Calculate Operational Costs
-      const totalOperationalCosts = filteredOrders
-        .filter(order => order.status === 'Delivered')
-        .reduce((sum, order) => {
-          return sum + (order.operationalCosts || []).reduce((costSum, cost) => {
-            return costSum + (parseFloat(cost.amount) || 0);
-          }, 0);
-        }, 0);
+      // Calculate Operational Costs for delivered orders
+      const totalOperationalCosts = operationalCosts
+        .filter(cost => {
+          const costDate = new Date(cost.createdAt);
+          return costDate >= startDate && costDate <= endDate;
+        })
+        .reduce((sum, cost) => sum + (parseFloat(cost.amount) || 0), 0);
 
-      // Calculate Selling Costs
-      const totalSellingCosts = filteredOrders
-        .filter(order => order.status === 'Delivered')
-        .reduce((sum, order) => {
-          return sum + (order.sellingCosts || []).reduce((costSum, cost) => {
-            return costSum + (parseFloat(cost.amount) || 0);
-          }, 0);
-        }, 0);
+      // Calculate Selling Costs for delivered orders
+      const totalSellingCosts = sellingCosts
+        .filter(cost => {
+          const costDate = new Date(cost.createdAt);
+          return costDate >= startDate && costDate <= endDate;
+        })
+        .reduce((sum, cost) => sum + (parseFloat(cost.amount) || 0), 0);
 
       // Calculate COGS (Cost of Goods Sold)
       const cogs = totalOperationalCosts + totalSellingCosts;
@@ -110,6 +108,10 @@ const financialService = {
       // Calculate Net Profit
       const netProfit = grossProfit - totalOperatingExpenses;
 
+      // Ensure we don't divide by zero
+      const grossMargin = totalRevenue > 0 ? grossProfit / totalRevenue : 0;
+      const netMargin = totalRevenue > 0 ? netProfit / totalRevenue : 0;
+
       return {
         period: { startDate, endDate },
         revenue: {
@@ -131,8 +133,8 @@ const financialService = {
         grossProfit,
         netProfit,
         margins: {
-          grossMargin: grossProfit / totalRevenue,
-          netMargin: netProfit / totalRevenue
+          grossMargin,
+          netMargin
         }
       };
     } catch (error) {
@@ -237,9 +239,10 @@ const financialService = {
   // Cash Flow Calculations
   calculateCashFlow: async (startDate, endDate) => {
     try {
-      const [orders, invoices] = await Promise.all([
+      const [orders, invoices, operationalCosts] = await Promise.all([
         dataSyncService.getSalesOrders(),
-        Promise.resolve([])
+        Promise.resolve([]),
+        dataSyncService.getOperationalCosts()
       ]);
 
       // Filter orders by date range
@@ -248,18 +251,18 @@ const financialService = {
         return orderDate >= startDate && orderDate <= endDate;
       });
 
-      // Operating Activities
+      // Operating Activities - Cash Received from delivered orders
       const cashFromOperations = filteredOrders
         .filter(order => order.status === 'Delivered')
         .reduce((sum, order) => sum + (parseFloat(order.sellingPrice) || 0), 0);
 
-      const cashForOperations = filteredOrders
-        .filter(order => order.status === 'Delivered')
-        .reduce((sum, order) => {
-          return sum + (order.operationalCosts || []).reduce((costSum, cost) => {
-            return costSum + (parseFloat(cost.amount) || 0);
-          }, 0);
-        }, 0);
+      // Operating Activities - Cash Paid for operational costs in the period
+      const cashForOperations = operationalCosts
+        .filter(cost => {
+          const costDate = new Date(cost.createdAt);
+          return costDate >= startDate && costDate <= endDate;
+        })
+        .reduce((sum, cost) => sum + (parseFloat(cost.amount) || 0), 0);
 
       // Investing Activities (mock data)
       const cashForInvesting = -50000000; // Equipment purchase

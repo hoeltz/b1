@@ -38,6 +38,19 @@ export const INDONESIAN_PROVINCE_CAPITALS = [
     { province: 'Sumatera Utara', capital: 'Medan', type: 'Province Capital' }
  ];
 
+// Indonesian Province Capitals for Domestic Routes (sorted alphabetically)
+export const INDONESIAN_CAPITALS_LIST = INDONESIAN_PROVINCE_CAPITALS
+  .map(item => item.capital)
+  .sort((a, b) => a.localeCompare(b, 'id'));
+
+// Countries for International Routes (sorted alphabetically)
+export const INTERNATIONAL_COUNTRIES_LIST = [
+  'Australia', 'Bangladesh', 'Brunei', 'Cambodia', 'Canada', 'China', 'Denmark', 'France',
+  'Germany', 'Hong Kong', 'India', 'Italy', 'Japan', 'Malaysia', 'Netherlands', 'New Zealand',
+  'Norway', 'Philippines', 'Singapore', 'South Korea', 'Spain', 'Sweden', 'Switzerland',
+  'Taiwan', 'Thailand', 'United Kingdom', 'United States', 'Vietnam'
+].sort((a, b) => a.localeCompare(b));
+
 export const INDONESIAN_CITIES = [
     // Major Ports and Cities (sorted alphabetically)
     'Aceh', 'Balikpapan', 'Bandar Lampung', 'Bandung', 'Banjarbaru', 'Batam', 'Bekasi', 'Bengkulu',
