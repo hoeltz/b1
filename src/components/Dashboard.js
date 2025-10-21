@@ -191,8 +191,20 @@ const QuickActions = () => (
 );
 
 const Dashboard = () => {
-  // Use real-time dashboard statistics
-  const { stats, loading: statsLoading } = useDashboardStats();
+  // Use real-time dashboard statistics with fallback
+  const dashboardStatsData = useDashboardStats();
+  const stats = dashboardStatsData?.stats || {
+    totalRevenue: 0,
+    totalOperationalCosts: 0,
+    totalMargin: 0,
+    totalCustomers: 0,
+    totalOrders: 0,
+    pendingInvoices: 0,
+    overdueInvoices: 0,
+    totalOverdueAmount: 0,
+    activeShipments: 0
+  };
+  const statsLoading = dashboardStatsData?.loading || false;
 
   // Use real-time data sync for recent orders
   const { data: ordersData, loading: ordersLoading } = useDataSync('salesOrders');
