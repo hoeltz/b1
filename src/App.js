@@ -111,6 +111,8 @@ import {
   Warning as WarningIcon,
   TrendingUp as TrendingUpIcon,
   Category as CategoryIcon,
+  Inventory as InventoryIcon,
+  TrackChanges as CourierIcon,
 } from '@mui/icons-material';
 
 // Components
@@ -124,6 +126,8 @@ import InvoiceManagement from './components/InvoiceManagement';
 import FinanceReporting from './components/FinanceReporting';
 import Analytics from './components/Analytics';
 import HSCodeManagement from './components/HSCodeManagement';
+import WarehouseManagement from './components/WarehouseManagement';
+import CourierManagement from './components/CourierManagement';
 
 const drawerWidth = 280;
 
@@ -139,6 +143,8 @@ const menuItems = [
 
   // Operational Details
   { text: 'Shipping Management', icon: <ShippingIcon />, path: '/shipping', category: 'operations' },
+  { text: 'Warehouse Management', icon: <InventoryIcon />, path: '/warehouse', category: 'operations' },
+  { text: 'Courier Management', icon: <CourierIcon />, path: '/courier', category: 'operations' },
   { text: 'HS Code Management', icon: <CategoryIcon />, path: '/hs-codes', category: 'operations' },
 
   // Internal Cost Management (Management Only)
@@ -303,6 +309,8 @@ function App() {
           <Route path="/purchase-orders" element={<PurchaseOrder />} />
           <Route path="/hs-codes" element={<HSCodeManagement />} />
           <Route path="/shipping" element={<ShippingManagement />} />
+          <Route path="/warehouse" element={<WarehouseManagement />} />
+          <Route path="/courier" element={<CourierManagement />} />
           <Route path="/vendors" element={<VendorManagement />} />
           <Route path="/invoices" element={<InvoiceManagement />} />
           <Route path="/finance-reports" element={<FinanceReporting />} />
