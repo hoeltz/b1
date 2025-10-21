@@ -128,6 +128,7 @@ import Analytics from './components/Analytics';
 import HSCodeManagement from './components/HSCodeManagement';
 import WarehouseManagement from './components/WarehouseManagement';
 import CourierManagement from './components/CourierManagement';
+import ProfitLossReport from './components/ProfitLossReport';
 
 const drawerWidth = 280;
 
@@ -151,6 +152,7 @@ const menuItems = [
 
   // Financial Management
   { text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices', category: 'finance' },
+  { text: 'Profit & Loss', icon: <TrendingUpIcon />, path: '/profit-loss', category: 'finance' },
   { text: 'Finance Reports', icon: <FinanceIcon />, path: '/finance-reports', category: 'finance' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics', category: 'finance' },
 ];
@@ -313,6 +315,7 @@ function App() {
           <Route path="/courier" element={<CourierManagement />} />
           <Route path="/vendors" element={<VendorManagement />} />
           <Route path="/invoices" element={<InvoiceManagement />} />
+          <Route path="/profit-loss" element={<ProfitLossReport />} />
           <Route path="/finance-reports" element={<FinanceReporting />} />
           <Route path="/analytics" element={<Analytics />} />
         </Routes>
