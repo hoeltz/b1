@@ -1,47 +1,85 @@
 // Location data for FreightFlow Application
 
-export const INDONESIAN_CITIES = [
-   // Major Ports and Cities (sorted alphabetically)
-   'Aceh', 'Balikpapan', 'Bandar Lampung', 'Bandung', 'Banjarbaru', 'Batam', 'Bekasi', 'Bengkulu',
-   'Bogor', 'Cimahi', 'Cirebon', 'Depok', 'Jakarta', 'Jakarta Raya', 'Jambi', 'Kediri',
-   'Makassar', 'Malang', 'Manado', 'Medan', 'Padang', 'Palembang', 'Pekanbaru', 'Pontianak',
-   'Samarinda', 'Semarang', 'Serang', 'Sukabumi', 'Surabaya', 'Tangerang', 'Tasikmalaya',
+export const INDONESIAN_PROVINCE_CAPITALS = [
+    // Province Capitals (sorted alphabetically by province name)
+    { province: 'Aceh', capital: 'Banda Aceh', type: 'Province Capital' },
+    { province: 'Bali', capital: 'Denpasar', type: 'Province Capital' },
+    { province: 'Banten', capital: 'Serang', type: 'Province Capital' },
+    { province: 'Bengkulu', capital: 'Bengkulu', type: 'Province Capital' },
+    { province: 'DI Yogyakarta', capital: 'Yogyakarta', type: 'Province Capital' },
+    { province: 'DKI Jakarta', capital: 'Jakarta', type: 'Province Capital' },
+    { province: 'Gorontalo', capital: 'Gorontalo', type: 'Province Capital' },
+    { province: 'Jambi', capital: 'Jambi', type: 'Province Capital' },
+    { province: 'Jawa Barat', capital: 'Bandung', type: 'Province Capital' },
+    { province: 'Jawa Tengah', capital: 'Semarang', type: 'Province Capital' },
+    { province: 'Jawa Timur', capital: 'Surabaya', type: 'Province Capital' },
+    { province: 'Kalimantan Barat', capital: 'Pontianak', type: 'Province Capital' },
+    { province: 'Kalimantan Selatan', capital: 'Banjarmasin', type: 'Province Capital' },
+    { province: 'Kalimantan Tengah', capital: 'Palangka Raya', type: 'Province Capital' },
+    { province: 'Kalimantan Timur', capital: 'Samarinda', type: 'Province Capital' },
+    { province: 'Kalimantan Utara', capital: 'Tanjung Selor', type: 'Province Capital' },
+    { province: 'Kepulauan Bangka Belitung', capital: 'Pangkal Pinang', type: 'Province Capital' },
+    { province: 'Kepulauan Riau', capital: 'Tanjung Pinang', type: 'Province Capital' },
+    { province: 'Lampung', capital: 'Bandar Lampung', type: 'Province Capital' },
+    { province: 'Maluku', capital: 'Ambon', type: 'Province Capital' },
+    { province: 'Maluku Utara', capital: 'Sofifi', type: 'Province Capital' },
+    { province: 'Nusa Tenggara Barat', capital: 'Mataram', type: 'Province Capital' },
+    { province: 'Nusa Tenggara Timur', capital: 'Kupang', type: 'Province Capital' },
+    { province: 'Papua', capital: 'Jayapura', type: 'Province Capital' },
+    { province: 'Papua Barat', capital: 'Manokwari', type: 'Province Capital' },
+    { province: 'Riau', capital: 'Pekanbaru', type: 'Province Capital' },
+    { province: 'Sulawesi Barat', capital: 'Mamuju', type: 'Province Capital' },
+    { province: 'Sulawesi Selatan', capital: 'Makassar', type: 'Province Capital' },
+    { province: 'Sulawesi Tengah', capital: 'Palu', type: 'Province Capital' },
+    { province: 'Sulawesi Tenggara', capital: 'Kendari', type: 'Province Capital' },
+    { province: 'Sulawesi Utara', capital: 'Manado', type: 'Province Capital' },
+    { province: 'Sumatera Barat', capital: 'Padang', type: 'Province Capital' },
+    { province: 'Sumatera Selatan', capital: 'Palembang', type: 'Province Capital' },
+    { province: 'Sumatera Utara', capital: 'Medan', type: 'Province Capital' }
+ ];
 
-   // Provinces (sorted alphabetically)
-   'Bali', 'Banten', 'Gorontalo', 'Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Kalimantan Barat',
-   'Kalimantan Selatan', 'Kalimantan Tengah', 'Kalimantan Timur', 'Kepulauan Bangka Belitung',
-   'Kepulauan Riau', 'Lampung', 'Maluku', 'Maluku Utara', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur',
-   'Papua', 'Papua Barat', 'Riau', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tengah',
-   'Sulawesi Tenggara', 'Sulawesi Utara', 'Sumatera Barat', 'Sumatera Selatan', 'Sumatera Utara'
-];
+export const INDONESIAN_CITIES = [
+    // Major Ports and Cities (sorted alphabetically)
+    'Aceh', 'Balikpapan', 'Bandar Lampung', 'Bandung', 'Banjarbaru', 'Batam', 'Bekasi', 'Bengkulu',
+    'Bogor', 'Cimahi', 'Cirebon', 'Depok', 'Jakarta', 'Jakarta Raya', 'Jambi', 'Kediri',
+    'Makassar', 'Malang', 'Manado', 'Medan', 'Padang', 'Palembang', 'Pekanbaru', 'Pontianak',
+    'Samarinda', 'Semarang', 'Serang', 'Sukabumi', 'Surabaya', 'Tangerang', 'Tasikmalaya',
+
+    // Provinces (sorted alphabetically)
+    'Bali', 'Banten', 'Gorontalo', 'Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Kalimantan Barat',
+    'Kalimantan Selatan', 'Kalimantan Tengah', 'Kalimantan Timur', 'Kepulauan Bangka Belitung',
+    'Kepulauan Riau', 'Lampung', 'Maluku', 'Maluku Utara', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur',
+    'Papua', 'Papua Barat', 'Riau', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tengah',
+    'Sulawesi Tenggara', 'Sulawesi Utara', 'Sumatera Barat', 'Sumatera Selatan', 'Sumatera Utara'
+ ];
 
 export const COUNTRIES = [
-   // Africa (sorted alphabetically)
-   'Algeria', 'Angola', 'Egypt', 'Ethiopia', 'Ghana', 'Kenya', 'Morocco', 'Nigeria',
-   'South Africa', 'Tanzania',
+    // Africa (sorted alphabetically)
+    'Algeria', 'Angola', 'Egypt', 'Ethiopia', 'Ghana', 'Kenya', 'Morocco', 'Nigeria',
+    'South Africa', 'Tanzania', 'Tunisia', 'Uganda',
 
-   // Asia Pacific (sorted alphabetically)
-   'Australia', 'Bangladesh', 'Brunei', 'Cambodia', 'China', 'Hong Kong', 'India', 'Indonesia',
-   'Japan', 'Jordan', 'Laos', 'Malaysia', 'Mongolia', 'Myanmar', 'Nepal', 'New Zealand',
-   'Pakistan', 'Philippines', 'Singapore', 'South Korea', 'Sri Lanka', 'Taiwan', 'Thailand',
-   'Vietnam',
+    // Asia Pacific (sorted alphabetically)
+    'Australia', 'Bangladesh', 'Brunei', 'Cambodia', 'China', 'Hong Kong', 'India', 'Indonesia',
+    'Japan', 'Jordan', 'Laos', 'Malaysia', 'Mongolia', 'Myanmar', 'Nepal', 'New Zealand',
+    'Pakistan', 'Philippines', 'Singapore', 'South Korea', 'Sri Lanka', 'Taiwan', 'Thailand',
+    'Vietnam',
 
-   // Europe (sorted alphabetically)
-   'Austria', 'Belgium', 'Czech Republic', 'Denmark', 'Finland', 'France', 'Germany',
-   'Greece', 'Hungary', 'Italy', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Romania',
-   'Russia', 'Spain', 'Sweden', 'Switzerland', 'Turkey', 'United Kingdom',
+    // Europe (sorted alphabetically)
+    'Austria', 'Belgium', 'Czech Republic', 'Denmark', 'Finland', 'France', 'Germany',
+    'Greece', 'Hungary', 'Italy', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Romania',
+    'Russia', 'Spain', 'Sweden', 'Switzerland', 'Turkey', 'United Kingdom',
 
-   // Middle East (sorted alphabetically)
-   'Bahrain', 'Iran', 'Iraq', 'Israel', 'Kuwait', 'Lebanon', 'Oman', 'Qatar',
-   'Saudi Arabia', 'United Arab Emirates',
+    // Middle East (sorted alphabetically)
+    'Bahrain', 'Iran', 'Iraq', 'Israel', 'Kuwait', 'Lebanon', 'Oman', 'Qatar',
+    'Saudi Arabia', 'United Arab Emirates',
 
-   // North America (sorted alphabetically)
-   'Canada', 'Mexico', 'United States',
+    // North America (sorted alphabetically)
+    'Canada', 'Mexico', 'United States',
 
-   // South America (sorted alphabetically)
-   'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Paraguay', 'Peru',
-   'Uruguay', 'Venezuela'
-];
+    // South America (sorted alphabetically)
+    'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Paraguay', 'Peru',
+    'Uruguay', 'Venezuela'
+ ];
 
 export const CURRENCIES = [
   { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp' },

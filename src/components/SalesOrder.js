@@ -165,6 +165,7 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
     salesOrder || {
       customerId: '',
       customerName: '',
+      shipmentType: 'Domestic',
       packageType: 'Domestic',
       origin: '',
       originCountry: 'Indonesia',
@@ -228,6 +229,7 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
       loadOperationalCostsForOrder(salesOrder.id);
       setValues({
         ...salesOrder,
+        shipmentType: salesOrder.shipmentType || salesOrder.packageType || 'Domestic',
         operationalCosts: salesOrder.operationalCosts || [],
         sellingCosts: salesOrder.sellingCosts || [],
         cargoItems: salesOrder.cargoItems || [],
@@ -277,6 +279,7 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
     setValues({
       customerId: '',
       customerName: '',
+      shipmentType: 'Domestic',
       packageType: 'Domestic',
       origin: '',
       originCountry: 'Indonesia',
@@ -369,6 +372,26 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
           destination: '',
           originCountry: packageType === 'Domestic' ? 'Indonesia' : '',
           destinationCountry: packageType === 'Domestic' ? 'Indonesia' : '',
+        };
+      }
+      return prev;
+    });
+  };
+
+  const handleShipmentTypeChange = (e) => {
+    const shipmentType = e.target.value;
+
+    setValues(prev => {
+      // Only update if shipment type actually changed
+      if (prev.shipmentType !== shipmentType) {
+        return {
+          ...prev,
+          shipmentType,
+          // Reset locations when shipment type changes
+          origin: '',
+          destination: '',
+          originCountry: shipmentType === 'Domestic' ? 'Indonesia' : '',
+          destinationCountry: shipmentType === 'Domestic' ? 'Indonesia' : '',
         };
       }
       return prev;
@@ -684,8 +707,9 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
       // Build comprehensive notes
       const notes = [
         `Sales Order: ${values.orderNumber}`,
+        `Shipment Type: ${values.shipmentType || values.packageType || 'Domestic'}`,
         `Service: ${values.serviceType}`,
-        `Route: ${values.origin} → ${values.destination}`,
+        `Route: ${getLocationDisplayName(values.origin)} → ${getLocationDisplayName(values.destination)}`,
         `Package Type: ${values.packageType}`,
         `Priority: ${values.priority}`,
         '',
@@ -718,11 +742,14 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
         notes: notes,
         // Additional metadata
         orderDetails: {
+          shipmentType: values.shipmentType || values.packageType,
           serviceType: values.serviceType,
           packageType: values.packageType,
           priority: values.priority,
           origin: values.origin,
+          originCountry: values.originCountry,
           destination: values.destination,
+          destinationCountry: values.destinationCountry,
           cargoCount: values.cargoItems.length,
           operationalCostCount: values.operationalCosts.length,
           sellingCostCount: values.sellingCosts.length
@@ -944,7 +971,28 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
   };
 
   const getLocationOptions = () => {
-    return values.packageType === 'Domestic' ? INDONESIAN_CITIES : COUNTRIES;
+    // For backward compatibility, check both packageType and shipmentType
+    const shipmentType = values.shipmentType || values.packageType;
+    return shipmentType === 'Domestic' ? INDONESIAN_PROVINCE_CAPITALS.map(item => item.capital) : COUNTRIES;
+  };
+
+  const getLocationDisplayName = (location) => {
+    // For domestic, show province capital with province name
+    if ((values.shipmentType || values.packageType) === 'Domestic') {
+      const provinceData = INDONESIAN_PROVINCE_CAPITALS.find(item => item.capital === location);
+      return provinceData ? `${location} (${provinceData.province})` : location;
+    }
+    return location;
+  };
+
+  const getShipmentTypeLabel = (type) => {
+    const shipmentType = values.shipmentType || values.packageType;
+    if (type === 'Origin') {
+      return shipmentType === 'Domestic' ? 'Origin City' : 'Origin Country';
+    } else if (type === 'Destination') {
+      return shipmentType === 'Domestic' ? 'Destination City' : 'Destination Country';
+    }
+    return type;
   };
 
   const steps = ['Basic Info', 'Cargo Details', 'Cost Management', 'Vendor & Shipment', 'Review & Submit'];
@@ -999,6 +1047,46 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
 
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
+                    <InputLabel>Shipment Type</InputLabel>
+                    <Select
+                      name="shipmentType"
+                      value={values.shipmentType || values.packageType || 'Domestic'}
+                      onChange={handleShipmentTypeChange}
+                      label="Shipment Type"
+                    >
+                      <MenuItem value="Domestic">Domestic (Dalam Negeri)</MenuItem>
+                      <MenuItem value="International">International (Luar Negeri)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Shipment Type</InputLabel>
+                    <Select
+                      name="shipmentType"
+                      value={values.shipmentType || values.packageType || 'Domestic'}
+                      onChange={(e) => {
+                        const shipmentType = e.target.value;
+                        setValues(prev => ({
+                          ...prev,
+                          shipmentType,
+                          origin: '',
+                          destination: '',
+                          originCountry: shipmentType === 'Domestic' ? 'Indonesia' : '',
+                          destinationCountry: shipmentType === 'Domestic' ? 'Indonesia' : '',
+                        }));
+                      }}
+                      label="Shipment Type"
+                    >
+                      <MenuItem value="Domestic">Domestic (Dalam Negeri)</MenuItem>
+                      <MenuItem value="International">International (Luar Negeri)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
                     <InputLabel>Package Type</InputLabel>
                     <Select
                       name="packageType"
@@ -1024,9 +1112,10 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Origin"
+                        label={getShipmentTypeLabel('Origin')}
                         {...getFieldProps('origin')}
                         color={getFieldStateColor(fieldStates.origin)}
+                        helperText={getShipmentTypeLabel('Origin') === 'Origin Country' ? 'Pilih negara asal' : 'Pilih kota asal'}
                         InputProps={{
                           ...params.InputProps,
                           endAdornment: (
@@ -1054,9 +1143,10 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Destination"
+                        label={getShipmentTypeLabel('Destination')}
                         {...getFieldProps('destination')}
                         color={getFieldStateColor(fieldStates.destination)}
+                        helperText={getShipmentTypeLabel('Destination') === 'Destination Country' ? 'Pilih negara tujuan' : 'Pilih kota tujuan'}
                         InputProps={{
                           ...params.InputProps,
                           endAdornment: (
@@ -1776,7 +1866,8 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
                       <CardContent>
                         <Typography variant="subtitle1" gutterBottom>Order Summary</Typography>
                         <Typography>Customer: {values.customerName}</Typography>
-                        <Typography>Route: {values.origin} → {values.destination}</Typography>
+                        <Typography>Shipment Type: {values.shipmentType || values.packageType || 'Domestic'}</Typography>
+                        <Typography>Route: {getLocationDisplayName(values.origin)} → {getLocationDisplayName(values.destination)}</Typography>
                         <Typography>Service: {values.serviceType}</Typography>
                         <Typography>Package Type: {values.packageType}</Typography>
                         <Typography>Priority: {values.priority}</Typography>
@@ -2003,7 +2094,10 @@ const SalesOrderForm = ({ open, onClose, salesOrder, onSave }) => {
                 <strong>Sales Order:</strong> {values.orderNumber} - {values.customerName}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Current Route:</strong> {values.origin} → {values.destination}
+                <strong>Shipment Type:</strong> {values.shipmentType || values.packageType || 'Domestic'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Current Route:</strong> {getLocationDisplayName(values.origin)} → {getLocationDisplayName(values.destination)}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Current Value:</strong> {new Intl.NumberFormat('id-ID', {
@@ -2258,17 +2352,26 @@ const SalesOrder = () => {
                 </TableCell>
                 <TableCell>
                   <Typography variant="subtitle2">{order.customerName}</Typography>
-                  <Chip
-                    label={order.packageType}
-                    size="small"
-                    color={order.packageType === 'International' ? 'primary' : 'secondary'}
-                    variant="outlined"
-                  />
+                  <Box display="flex" gap={0.5} flexWrap="wrap">
+                    <Chip
+                      label={order.shipmentType || order.packageType || 'Domestic'}
+                      size="small"
+                      color={(order.shipmentType || order.packageType) === 'International' ? 'primary' : 'secondary'}
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={order.packageType}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">{order.origin}</Typography>
+                  <Typography variant="body2">
+                    {getLocationDisplayName(order.origin)}
+                  </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    → {order.destination}
+                    → {getLocationDisplayName(order.destination)}
                   </Typography>
                   {order.shipmentDetails?.trackingNumber && (
                     <Typography variant="caption" color="primary">
