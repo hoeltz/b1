@@ -1,4 +1,5 @@
 // Basic error handling utilities (replacement for deleted complex errorHandler)
+import React, { useState } from 'react';
 export const FIELD_STATES = {
   IDLE: 'idle',
   VALIDATING: 'validating',
