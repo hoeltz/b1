@@ -114,20 +114,46 @@ const VendorManagement = () => {
     phone: {
       required: true,
       pattern: extendedValidationPatterns.indonesianPhone,
-      patternMessage: 'Please enter a valid Indonesian phone number'
+      patternMessage: 'Format nomor telepon: 08123456789, 628123456789, atau +628123456789',
+      custom: (value) => {
+        if (!value) return true; // Required validation handled separately
+        const digitsOnly = value.replace(/\D/g, '');
+        if (digitsOnly.length < 10) {
+          return 'Nomor telepon minimal 10 digit';
+        }
+        if (digitsOnly.length > 13) {
+          return 'Nomor telepon maksimal 13 digit';
+        }
+        if (!extendedValidationPatterns.indonesianPhone.test(value)) {
+          return 'Format nomor tidak valid. Gunakan: 08123456789, 628123456789, atau +628123456789';
+        }
+        return true;
+      }
     },
     email: {
       pattern: extendedValidationPatterns.email,
-      patternMessage: 'Please enter a valid email address',
+      patternMessage: 'Format email tidak valid (contoh: nama@perusahaan.com)',
       required: false
     },
     registrationNumber: {
       required: false,
-      patternMessage: 'Please enter a valid registration number'
+      patternMessage: 'Nomor registrasi harus 13 digit (opsional)'
     },
     taxId: {
       required: false,
-      patternMessage: 'Please enter a valid tax ID'
+      pattern: extendedValidationPatterns.indonesianTaxId,
+      patternMessage: 'Format NPWP harus: XX.XXX.XXX.X-XXX.XXX (15 digit dengan titik dan strip)',
+      custom: (value) => {
+        if (!value) return true; // Optional field
+        const digitsOnly = value.replace(/\D/g, '');
+        if (digitsOnly.length !== 15) {
+          return `NPWP harus terdiri dari 15 digit (saat ini: ${digitsOnly.length} digit)`;
+        }
+        if (!extendedValidationPatterns.indonesianTaxId.test(value)) {
+          return 'Format NPWP tidak sesuai. Gunakan format: XX.XXX.XXX.X-XXX.XXX';
+        }
+        return true;
+      }
     }
   };
 
@@ -261,6 +287,38 @@ const VendorManagement = () => {
     setEditOpen(true);
   };
 
+  // Auto-format NPWP input as user types
+  const formatNPWPInput = (value) => {
+    // Remove all non-digits
+    const digitsOnly = value.replace(/\D/g, '');
+
+    // Limit to 15 digits
+    const limitedDigits = digitsOnly.slice(0, 15);
+
+    // Apply formatting: XX.XXX.XXX.X-XXX.XXX
+    let formatted = '';
+    if (limitedDigits.length > 0) {
+      formatted += limitedDigits.slice(0, 2); // XX
+      if (limitedDigits.length > 2) {
+        formatted += '.' + limitedDigits.slice(2, 5); // .XXX
+        if (limitedDigits.length > 5) {
+          formatted += '.' + limitedDigits.slice(5, 8); // .XXX
+          if (limitedDigits.length > 8) {
+            formatted += '.' + limitedDigits.slice(8, 9); // .X
+            if (limitedDigits.length > 9) {
+              formatted += '-' + limitedDigits.slice(9, 12); // -XXX
+              if (limitedDigits.length > 12) {
+                formatted += '.' + limitedDigits.slice(12, 15); // .XXX
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return formatted;
+  };
+
   const handleDeleteVendor = async (vendorId) => {
     if (window.confirm('Are you sure you want to delete this vendor? This action cannot be undone.')) {
       try {
@@ -277,7 +335,13 @@ const VendorManagement = () => {
     setSubmitError('');
     setSubmitSuccess('');
 
+    console.log('Vendor form submission started...');
+    console.log('Current form data:', values);
+    console.log('Current errors:', errors);
+    console.log('Current field states:', fieldStates);
+
     const result = await validateAndSubmit(async (formData) => {
+      console.log('Creating vendor with data:', formData);
       const newVendor = {
         ...formData,
         rating: parseInt(formData.rating),
@@ -286,16 +350,21 @@ const VendorManagement = () => {
       };
 
       const createdVendor = await dataSyncService.createVendor(newVendor);
+      console.log('Vendor created successfully:', createdVendor);
       setVendors(prev => [...prev, createdVendor]);
     });
 
+    console.log('Form submission result:', result);
+
     if (result.success) {
-      setSubmitSuccess('Vendor added successfully!');
+      console.log('Vendor form submitted successfully');
+      setSubmitSuccess('Vendor berhasil ditambahkan!');
       reset();
       setOpen(false);
       setTimeout(() => setSubmitSuccess(''), 3000);
     } else {
-      setSubmitError('Please correct the validation errors');
+      console.log('Vendor form submission failed with errors:', result.errors);
+      setSubmitError('Silakan perbaiki kesalahan validasi');
     }
   };
 
@@ -303,7 +372,13 @@ const VendorManagement = () => {
     setSubmitError('');
     setSubmitSuccess('');
 
+    console.log('Vendor update started...');
+    console.log('Editing vendor:', editingVendor);
+    console.log('Form data:', values);
+    console.log('Form errors:', errors);
+
     const result = await validateAndSubmit(async (formData) => {
+      console.log('Updating vendor with data:', formData);
       const updatedVendor = {
         ...editingVendor,
         ...formData,
@@ -312,16 +387,21 @@ const VendorManagement = () => {
       };
 
       const savedVendor = await dataSyncService.updateVendor(editingVendor.id, updatedVendor);
+      console.log('Vendor updated successfully:', savedVendor);
       setVendors(prev => prev.map(v => v.id === editingVendor.id ? savedVendor : v));
     });
 
+    console.log('Update result:', result);
+
     if (result.success) {
-      setSubmitSuccess('Vendor updated successfully!');
+      console.log('Vendor update successful');
+      setSubmitSuccess('Vendor berhasil diperbarui!');
       setEditOpen(false);
       setEditingVendor(null);
       setTimeout(() => setSubmitSuccess(''), 3000);
     } else {
-      setSubmitError('Please correct the validation errors');
+      console.log('Vendor update failed with errors:', result.errors);
+      setSubmitError('Silakan perbaiki kesalahan validasi');
     }
   };
 
@@ -329,6 +409,19 @@ const VendorManagement = () => {
     setOpen(false);
     reset();
     setSubmitError('');
+  };
+
+  // Enhanced field change handler with auto-formatting
+  const handleFieldChangeWithFormatting = (field) => (event) => {
+    let value = event.target.value;
+
+    // Auto-format NPWP
+    if (field === 'taxId') {
+      value = formatNPWPInput(value);
+    }
+
+    // Update form validation state
+    handleFieldChange(field, value);
   };
 
   const handleEditClose = () => {
@@ -1001,6 +1094,24 @@ const VendorManagement = () => {
             </Alert>
           )}
 
+          {/* Validation Error Summary */}
+          {Object.keys(errors).length > 0 && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Mohon perbaiki kesalahan berikut:
+              </Typography>
+              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field}>
+                    <Typography variant="body2">
+                      {error}
+                    </Typography>
+                  </li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+
           <Tabs value={0} sx={{ mt: 2 }}>
             <Tab label="Basic Information" />
             <Tab label="Contact & Service" />
@@ -1040,7 +1151,10 @@ const VendorManagement = () => {
                   fullWidth
                   label="Tax ID (NPWP)"
                   value={values.taxId}
-                  onChange={(e) => handleFieldChange('taxId', e.target.value)}
+                  onChange={handleFieldChangeWithFormatting('taxId')}
+                  error={!!errors.taxId}
+                  helperText={errors.taxId || 'Format: XX.XXX.XXX.X-XXX.XXX (otomatis terformat)'}
+                  placeholder="01.234.567.8-901.000"
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -1111,6 +1225,24 @@ const VendorManagement = () => {
             </Alert>
           )}
 
+          {/* Validation Error Summary */}
+          {Object.keys(errors).length > 0 && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Mohon perbaiki kesalahan berikut:
+              </Typography>
+              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field}>
+                    <Typography variant="body2">
+                      {error}
+                    </Typography>
+                  </li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+
           <Tabs value={0} sx={{ mt: 2 }}>
             <Tab label="Basic Information" />
             <Tab label="Contact & Service" />
@@ -1143,6 +1275,17 @@ const VendorManagement = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  label="Phone"
+                  value={values.phone}
+                  onChange={(e) => handleFieldChange('phone', e.target.value)}
+                  error={!!errors.phone}
+                  helperText={errors.phone || 'Format: 08123456789, 628123456789, atau +628123456789'}
+                  placeholder="08123456789"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
                   label="Registration Number"
                   value={values.registrationNumber}
                   onChange={(e) => handleFieldChange('registrationNumber', e.target.value)}
@@ -1153,7 +1296,10 @@ const VendorManagement = () => {
                   fullWidth
                   label="Tax ID (NPWP)"
                   value={values.taxId}
-                  onChange={(e) => handleFieldChange('taxId', e.target.value)}
+                  onChange={handleFieldChangeWithFormatting('taxId')}
+                  error={!!errors.taxId}
+                  helperText={errors.taxId || 'Format: XX.XXX.XXX.X-XXX.XXX (otomatis terformat)'}
+                  placeholder="01.234.567.8-901.000"
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
