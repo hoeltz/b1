@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { initializeSampleData } from './services/localStorage';
 
 // Error Boundary Component
@@ -339,10 +339,12 @@ function App() {
   );
 }
 
-// Wrap App with Error Boundary
+// Wrap App with Error Boundary and Router
 const AppWithErrorBoundary = () => (
   <ErrorBoundary>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </ErrorBoundary>
 );
 
