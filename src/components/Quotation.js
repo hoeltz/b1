@@ -140,19 +140,15 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     excise: 0,
     // Cargo value for tax calculation (will be calculated from cargo items)
     cargoValueForTax: 0,
-    // Additional service costs with dual currency
+    // Additional service costs with single currency selection
     customsClearanceFee: 0,
-    customsClearanceFeeUSD: 0,
     customsClearanceCurrency: 'IDR',
     documentationFee: 0,
-    documentationFeeUSD: 0,
     documentationCurrency: 'IDR',
     thcFee: 0,
-    thcFeeUSD: 0,
     thcCurrency: 'IDR',
-    otherFees: 0,
-    otherFeesUSD: 0,
-    otherFeesCurrency: 'IDR',
+    // Custom other costs array for dynamic cost addition
+    otherCosts: [],
     // Insurance settings
     insuranceCoverage: 110,
     insuranceType: 'All Risk',
@@ -314,6 +310,39 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     }));
   }, [setValues]);
 
+  // Custom other costs management functions
+  const addOtherCost = useCallback(() => {
+    const newCost = {
+      id: Date.now().toString(),
+      description: '',
+      amount: 0,
+      currency: 'IDR',
+      category: 'Other',
+      createdAt: new Date().toISOString()
+    };
+
+    setValues(prev => ({
+      ...prev,
+      otherCosts: [...(prev.otherCosts || []), newCost]
+    }));
+  }, [setValues]);
+
+  const updateOtherCost = useCallback((costId, field, value) => {
+    setValues(prev => ({
+      ...prev,
+      otherCosts: (prev.otherCosts || []).map(cost =>
+        cost.id === costId ? { ...cost, [field]: value } : cost
+      )
+    }));
+  }, [setValues]);
+
+  const removeOtherCost = useCallback((costId) => {
+    setValues(prev => ({
+      ...prev,
+      otherCosts: (prev.otherCosts || []).filter(cost => cost.id !== costId)
+    }));
+  }, [setValues]);
+
 
   // Enhanced comprehensive cost calculation
   const calculateTotals = useCallback(() => {
@@ -438,20 +467,24 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
 
     // 2. Calculate additional service costs (main quotation level)
     const customsClearanceFee = values.customsClearanceCurrency === 'USD' ?
-      ((values.customsClearanceFeeUSD || 0)) * exchangeRate :
+      (values.customsClearanceFee || 0) * exchangeRate :
       (values.customsClearanceFee || 0);
 
     const documentationFee = values.documentationCurrency === 'USD' ?
-      (values.documentationFeeUSD || 0) * exchangeRate :
+      (values.documentationFee || 0) * exchangeRate :
       (values.documentationFee || 0);
 
     const thcFee = values.thcCurrency === 'USD' ?
-      (values.thcFeeUSD || 0) * exchangeRate :
+      (values.thcFee || 0) * exchangeRate :
       (values.thcFee || 0);
 
-    const otherFees = values.otherFeesCurrency === 'USD' ?
-      (values.otherFeesUSD || 0) * exchangeRate :
-      (values.otherFees || 0);
+    // Calculate custom other costs
+    const otherCostsTotal = (values.otherCosts || []).reduce((total, cost) => {
+      const costAmount = cost.currency === 'USD' ?
+        (cost.amount || 0) * exchangeRate :
+        (cost.amount || 0);
+      return total + costAmount;
+    }, 0);
 
     // 3. Calculate cargo value for tax (from cargo items + additional costs)
     const cargoValueForTax = values.cargoItems?.reduce((total, item) => {
@@ -473,7 +506,7 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
 
     // 6. Calculate comprehensive subtotals
     const cargoItemsSubtotal = cargoCosts.itemTotalCost;
-    const additionalServicesSubtotal = customsClearanceFee + documentationFee + thcFee + otherFees;
+    const additionalServicesSubtotal = customsClearanceFee + documentationFee + thcFee + otherCostsTotal;
     const subtotalBeforeTax = cargoItemsSubtotal + additionalServicesSubtotal;
 
     const totalTax = (importDuty || 0) + (vat || 0) + (excise || 0);
@@ -496,8 +529,12 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
       customsClearanceFee: customsClearanceFee || 0,
       documentationFee: documentationFee || 0,
       thcFee: thcFee || 0,
-      otherFees: otherFees || 0,
+      otherFees: otherCostsTotal || 0, // Use new otherCosts total
       subtotal: subtotalBeforeTax || 0,
+
+      // New other costs tracking
+      otherCostsTotal: otherCostsTotal || 0,
+      otherCosts: values.otherCosts || [],
       importDuty: importDuty || 0,
       vat: vat || 0,
       excise: excise || 0,
@@ -590,6 +627,11 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     addCargoItem,
     updateCargoItem,
     removeCargoItem,
+
+    // Other costs management
+    addOtherCost,
+    updateOtherCost,
+    removeOtherCost,
 
     // Actions
     handleSubmit,
@@ -1073,15 +1115,15 @@ const CargoDetailsTab = memo(({
               Cost Breakdown
             </Typography>
 
-            {/* Origin Costs */}
+            {/* Origin Costs - Simplified with Single Currency Column */}
             <Typography variant="subtitle2" gutterBottom sx={{ mt: 2, color: 'secondary.main' }}>
               Origin Costs
             </Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Pickup Charge (${getCurrencySymbol(item.currency)})`}
+                  label="Pickup Charge"
                   value={formatNumber(item.pickupCharge || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1093,26 +1135,24 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Pickup Charge (USD)"
-                  value={formatNumber(item.pickupChargeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'pickupChargeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Export Doc Fee (${getCurrencySymbol(item.currency)})`}
+                  label="Export Documentation Fee"
                   value={formatNumber(item.exportDocumentationFee || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1124,26 +1164,24 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Export Doc Fee (USD)"
-                  value={formatNumber(item.exportDocumentationFeeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'exportDocumentationFeeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Origin THC (${getCurrencySymbol(item.currency)})`}
+                  label="Origin THC"
                   value={formatNumber(item.originTHC || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1155,32 +1193,30 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Origin THC (USD)"
-                  value={formatNumber(item.originTHCUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'originTHCUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
-            {/* Freight Costs */}
+            {/* Freight Costs - Simplified with Single Currency Column */}
             <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
               Freight Costs
             </Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Basic Freight (${getCurrencySymbol(item.currency)})`}
+                  label="Basic Freight"
                   value={formatNumber(item.basicFreight || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1192,26 +1228,24 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Basic Freight (USD)"
-                  value={formatNumber(item.basicFreightUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'basicFreightUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Bunker Surcharge (${getCurrencySymbol(item.currency)})`}
+                  label="Bunker Surcharge"
                   value={formatNumber(item.bunkerSurcharge || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1223,32 +1257,30 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Bunker Surcharge (USD)"
-                  value={formatNumber(item.bunkerSurchargeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'bunkerSurchargeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
-            {/* Destination Costs */}
+            {/* Destination Costs - Simplified with Single Currency Column */}
             <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
               Destination Costs
             </Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Import Doc Fee (${getCurrencySymbol(item.currency)})`}
+                  label="Import Documentation Fee"
                   value={formatNumber(item.importDocumentationFee || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1260,26 +1292,24 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Import Doc Fee (USD)"
-                  value={formatNumber(item.importDocumentationFeeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'importDocumentationFeeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Destination THC (${getCurrencySymbol(item.currency)})`}
+                  label="Destination THC"
                   value={formatNumber(item.destinationTHC || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1291,32 +1321,30 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Destination THC (USD)"
-                  value={formatNumber(item.destinationTHCUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'destinationTHCUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
-            {/* Insurance and Additional Costs */}
+            {/* Insurance and Additional Costs - Simplified */}
             <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
               Insurance & Additional Costs
             </Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Insurance (${getCurrencySymbol(item.currency)})`}
+                  label="Insurance Cost"
                   value={formatNumber(item.insuranceCost || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1328,20 +1356,18 @@ const CargoDetailsTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Insurance (USD)"
-                  value={formatNumber(item.insuranceCostUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    onUpdateItem(item.id, 'insuranceCostUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={item.currency || 'IDR'}
+                    onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
@@ -1427,7 +1453,10 @@ const CostCalculationTab = memo(({
   getFieldStateIcon,
   FIELD_STATES,
   handleFieldChange,
-  totals
+  totals,
+  addOtherCost,
+  updateOtherCost,
+  removeOtherCost
 }) => {
   return (
     <Grid container spacing={2}>
@@ -1627,7 +1656,7 @@ const CostCalculationTab = memo(({
         </Card>
       </Grid>
 
-      {/* Additional Service Costs */}
+      {/* Enhanced Additional Service Costs with Custom Costs */}
       <Grid item xs={12} lg={6}>
         <Card>
           <CardContent>
@@ -1635,11 +1664,16 @@ const CostCalculationTab = memo(({
               🔧 Additional Service Costs
             </Typography>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            {/* Standard Service Costs */}
+            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2, fontWeight: 'bold' }}>
+              Standard Service Costs:
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Customs Clearance Fee (${getCurrencySymbol(values.customsClearanceCurrency)})`}
+                  label="Customs Clearance Fee"
                   value={formatNumber(values.customsClearanceFee || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1651,40 +1685,26 @@ const CostCalculationTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Customs Clearance Fee (USD)"
-                  value={formatNumber(values.customsClearanceFeeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    handleFieldChange('customsClearanceFeeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={values.customsClearanceCurrency || 'IDR'}
+                    onChange={(e) => handleFieldChange('customsClearanceCurrency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ my: 2 }}>
-              <InputLabel>Customs Clearance Currency</InputLabel>
-              <Select
-                value={values.customsClearanceCurrency || 'IDR'}
-                onChange={(e) => handleFieldChange('customsClearanceCurrency', e.target.value)}
-                label="Customs Clearance Currency"
-              >
-                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`Documentation Fee (${getCurrencySymbol(values.documentationCurrency)})`}
+                  label="Documentation Fee"
                   value={formatNumber(values.documentationFee || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1696,40 +1716,26 @@ const CostCalculationTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Documentation Fee (USD)"
-                  value={formatNumber(values.documentationFeeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    handleFieldChange('documentationFeeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={values.documentationCurrency || 'IDR'}
+                    onChange={(e) => handleFieldChange('documentationCurrency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ my: 2 }}>
-              <InputLabel>Documentation Currency</InputLabel>
-              <Select
-                value={values.documentationCurrency || 'IDR'}
-                onChange={(e) => handleFieldChange('documentationCurrency', e.target.value)}
-                label="Documentation Currency"
-              >
-                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
-                  label={`THC Fee (${getCurrencySymbol(values.thcCurrency)})`}
+                  label="THC Fee"
                   value={formatNumber(values.thcFee || 0)}
                   onChange={(e) => {
                     const cleanedValue = formatCurrencyInput(e.target.value);
@@ -1741,79 +1747,79 @@ const CostCalculationTab = memo(({
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="THC Fee (USD)"
-                  value={formatNumber(values.thcFeeUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    handleFieldChange('thcFeeUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={values.thcCurrency || 'IDR'}
+                    onChange={(e) => handleFieldChange('thcCurrency', e.target.value)}
+                    label="Currency"
+                  >
+                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ my: 2 }}>
-              <InputLabel>THC Currency</InputLabel>
-              <Select
-                value={values.thcCurrency || 'IDR'}
-                onChange={(e) => handleFieldChange('thcCurrency', e.target.value)}
-                label="THC Currency"
-              >
-                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
-              </Select>
-            </FormControl>
+            <Divider sx={{ my: 2 }} />
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label={`Other Fees (${getCurrencySymbol(values.otherFeesCurrency)})`}
-                  value={formatNumber(values.otherFees || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    handleFieldChange('otherFees', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(values.otherFeesCurrency)}</Typography>
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Other Fees (USD)"
-                  value={formatNumber(values.otherFeesUSD || 0)}
-                  onChange={(e) => {
-                    const cleanedValue = formatCurrencyInput(e.target.value);
-                    const numericValue = parseFloat(cleanedValue) || 0;
-                    handleFieldChange('otherFeesUSD', numericValue);
-                  }}
-                  InputProps={{
-                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
-                  }}
-                />
-              </Grid>
-            </Grid>
+            {/* Custom Other Costs Section */}
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                Custom Additional Costs:
+              </Typography>
+              <Button startIcon={<AddIcon />} onClick={addOtherCost} variant="outlined" size="small">
+                Add Cost
+              </Button>
+            </Box>
 
-            <FormControl fullWidth sx={{ my: 2 }}>
-              <InputLabel>Other Fees Currency</InputLabel>
-              <Select
-                value={values.otherFeesCurrency || 'IDR'}
-                onChange={(e) => handleFieldChange('otherFeesCurrency', e.target.value)}
-                label="Other Fees Currency"
-              >
-                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
-              </Select>
-            </FormControl>
+            {(values.otherCosts || []).map((cost, index) => (
+              <Grid container spacing={2} key={cost.id} sx={{ mb: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                <Grid item xs={12} sm={5}>
+                  <TextField
+                    fullWidth
+                    label="Cost Description"
+                    value={cost.description || ''}
+                    onChange={(e) => updateOtherCost(cost.id, 'description', e.target.value)}
+                    placeholder="e.g. Certificate Fee, Port Charges"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Amount"
+                    value={formatNumber(cost.amount || 0)}
+                    onChange={(e) => {
+                      const cleanedValue = formatCurrencyInput(e.target.value);
+                      const numericValue = parseFloat(cleanedValue) || 0;
+                      updateOtherCost(cost.id, 'amount', numericValue);
+                    }}
+                    InputProps={{
+                      startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(cost.currency)}</Typography>
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>Currency</InputLabel>
+                    <Select
+                      value={cost.currency || 'IDR'}
+                      onChange={(e) => updateOtherCost(cost.id, 'currency', e.target.value)}
+                      label="Currency"
+                    >
+                      <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                      <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={1}>
+                  <IconButton onClick={() => removeOtherCost(cost.id)} color="error" size="small">
+                    <DeleteIcon />
+                  </IconButton>
+                </Grid>
+              </Grid>
+            ))}
 
             <Divider sx={{ my: 2 }} />
 
@@ -1829,9 +1835,16 @@ const CostCalculationTab = memo(({
             <Typography variant="body2" sx={{ mb: 1 }}>
               THC: {formatCurrency(totals.thcFee, 'IDR')}
             </Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Other Fees: {formatCurrency(totals.otherFees, 'IDR')}
-            </Typography>
+            {(values.otherCosts || []).map((cost, index) => {
+              const costAmount = cost.currency === 'USD' ?
+                (cost.amount || 0) * (values.exchangeRate || 15000) :
+                (cost.amount || 0);
+              return (
+                <Typography key={cost.id} variant="body2" sx={{ mb: 1 }}>
+                  {cost.description || `Cost ${index + 1}`}: {formatCurrency(costAmount, 'IDR')}
+                </Typography>
+              );
+            })}
             <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold' }}>
               Subtotal: {formatCurrency(totals.additionalServicesSubtotal, 'IDR')}
             </Typography>
@@ -2585,6 +2598,9 @@ const Quotation = () => {
                     FIELD_STATES={FIELD_STATES}
                     handleFieldChange={handleFieldChange}
                     totals={totals}
+                    addOtherCost={addOtherCost}
+                    updateOtherCost={updateOtherCost}
+                    removeOtherCost={removeOtherCost}
                   />
                 )}
 
