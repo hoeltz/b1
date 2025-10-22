@@ -14,15 +14,9 @@ import {
   Paper,
 } from '@mui/material';
 import { Analytics as AnalyticsIcon, TrendingUp as TrendingUpIcon } from '@mui/icons-material';
+import { formatCurrency } from '../services/currencyUtils';
 
 const Analytics = () => {
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const analyticsData = [
     { metric: 'Average Order Value', value: formatCurrency(8500000), change: '+12%' },

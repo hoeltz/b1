@@ -923,43 +923,6 @@ const InvoiceManagement = () => {
     }
   };
 
-  // Real-time currency input formatting (Indonesian style)
-  const formatCurrencyInput = (value, currency = 'IDR') => {
-    if (!value) return '';
-
-    // Remove all non-numeric characters except decimal point
-    const numericValue = value.toString().replace(/[^\d]/g, '');
-
-    if (!numericValue) return '';
-
-    // Format the display value
-    if (currency === 'USD') {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(numericValue);
-    } else {
-      return new Intl.NumberFormat('id-ID', {
-        style: 'decimal',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(numericValue);
-    }
-  };
-
-  // Parse formatted currency back to number
-  const parseCurrencyInput = (formattedValue, currency = 'IDR') => {
-    if (!formattedValue) return 0;
-
-    // Remove currency symbols and formatting
-    const numericValue = formattedValue.toString()
-      .replace(/[Rp$,.]/g, '') // Remove currency symbols and separators
-      .replace(/[^\d]/g, ''); // Keep only digits
-
-    return parseInt(numericValue) || 0;
-  };
 
   const getStatusColor = (status) => {
     switch (status) {

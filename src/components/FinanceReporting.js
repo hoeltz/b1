@@ -14,15 +14,9 @@ import {
   Paper,
 } from '@mui/material';
 import { AttachMoney as MoneyIcon, TrendingUp as TrendingUpIcon } from '@mui/icons-material';
+import { formatCurrency } from '../services/currencyUtils';
 
 const FinanceReporting = () => {
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const reportData = [
     { period: 'Jan 2024', revenue: 45000000, costs: 32000000, margin: 13000000 },

@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import dataSyncService from '../services/dataSync';
 import notificationService from '../services/notificationService';
+import { formatCurrency } from '../services/currencyUtils';
 import {
   useFormValidation,
   getFieldStateColor,
@@ -579,13 +580,6 @@ const HSCodeManagement = () => {
     notificationService.showSuccess(`Total cost calculated: ${formatCurrency(calculation.totalCost)}`);
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const getCategoryColor = (category) => {
     const colors = {

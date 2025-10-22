@@ -60,6 +60,7 @@ import {
 } from '@mui/icons-material';
 import dataSyncService from '../services/dataSync';
 import notificationService from '../services/notificationService';
+import { formatCurrency } from '../services/currencyUtils';
 import {
   useFormValidation,
   getFieldStateColor,
@@ -493,22 +494,6 @@ const VendorManagement = () => {
     return 'error';
   };
 
-  const formatCurrency = (amount, currency = 'IDR') => {
-    if (currency === 'USD') {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount);
-    } else {
-      return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-      }).format(amount);
-    }
-  };
 
   return (
     <Box>

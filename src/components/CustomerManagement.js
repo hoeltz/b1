@@ -745,13 +745,6 @@ const CustomerManagement = () => {
     customer.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   return (
     <Box>
@@ -893,5 +886,7 @@ const CustomerManagement = () => {
     </Box>
   );
 };
+
+import { formatCurrency } from '../services/currencyUtils';
 
 export default CustomerManagement;
