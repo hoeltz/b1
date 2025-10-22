@@ -117,14 +117,14 @@ const HSCodeForm = ({ open, onClose, hsCode, onSave }) => {
   } = formValidation;
 
   useEffect(() => {
-    if (hsCode) {
+    if (hsCode && hsCode.code) {
       setFormData({
-        code: hsCode.code,
-        description: hsCode.description,
-        category: hsCode.category,
-        importDuty: hsCode.importDuty.toString(),
-        vat: hsCode.vat.toString(),
-        excise: hsCode.excise.toString(),
+        code: hsCode.code || '',
+        description: hsCode.description || '',
+        category: hsCode.category || '',
+        importDuty: hsCode.importDuty ? hsCode.importDuty.toString() : '',
+        vat: hsCode.vat ? hsCode.vat.toString() : '11',
+        excise: hsCode.excise ? hsCode.excise.toString() : '0',
         restrictions: hsCode.restrictions?.join(', ') || '',
         requiredPermits: hsCode.requiredPermits?.join(', ') || '',
         notes: hsCode.notes || '',
@@ -543,8 +543,13 @@ const HSCodeManagement = () => {
   };
 
   const handleEdit = (hsCode) => {
-    setSelectedHSCode(hsCode);
-    setDialogOpen(true);
+    if (hsCode && hsCode.id) {
+      setSelectedHSCode(hsCode);
+      setDialogOpen(true);
+    } else {
+      console.error('Invalid HS Code data:', hsCode);
+      notificationService.showError('Invalid HS Code data');
+    }
   };
 
   const handleDelete = async (id) => {
