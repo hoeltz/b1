@@ -34,6 +34,9 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
+import { handleError } from '../services/errorHandler';
+import dataSyncService from '../services/dataSync';
+import { formatCurrency } from '../services/currencyUtils';
 // Basic form validation utilities (replacement for deleted errorHandler)
 const FIELD_STATES = {
   IDLE: 'idle',
@@ -58,6 +61,19 @@ const getFieldStateIcon = (state) => {
     case FIELD_STATES.VALIDATING: return '⟳';
     default: return '';
   }
+};
+
+// Error handling utility function
+const withErrorHandling = (fn, context) => {
+  return async (...args) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      const freightFlowError = handleError(error, context);
+      console.error(`Error in ${context}:`, freightFlowError);
+      throw freightFlowError;
+    }
+  };
 };
 
 const extendedValidationPatterns = {
@@ -149,15 +165,31 @@ const useFormValidation = (initialValues, rules) => {
     setIsSubmitting(false);
   };
 
+  const getFieldProps = (name) => ({
+    name,
+    value: values[name] || '',
+    onChange: (e) => handleFieldChange(name, e.target.value),
+    onBlur: () => handleFieldBlur(name),
+    error: !!errors[name],
+    helperText: errors[name]
+  });
+
+  const handleFieldBlur = (name) => {
+    // Optional: Add blur handling logic here if needed
+    console.log(`Field ${name} blurred`);
+  };
+
   return {
     values,
     errors,
     fieldStates,
     isSubmitting,
     handleFieldChange,
+    handleFieldBlur,
     handleSubmit,
     reset,
-    setValues
+    setValues,
+    getFieldProps
   };
 };
 
@@ -232,7 +264,7 @@ const CustomerForm = ({ open, onClose, customer, onSave }) => {
       }
     },
     creditLimit: {
-      pattern: extendedValidationPatterns.currency.idr,
+      pattern: /^\d+(\.\d{1,2})?$/,
       patternMessage: 'Credit limit must be a valid amount (optional)',
       required: false,
       custom: (value) => {
@@ -886,7 +918,5 @@ const CustomerManagement = () => {
     </Box>
   );
 };
-
-import { formatCurrency } from '../services/currencyUtils';
 
 export default CustomerManagement;

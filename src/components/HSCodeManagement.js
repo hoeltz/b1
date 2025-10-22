@@ -42,6 +42,7 @@ import {
   Category as CategoryIcon,
   AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import dataSyncService from '../services/dataSync';
 import notificationService from '../services/notificationService';
 import { formatCurrency } from '../services/currencyUtils';
