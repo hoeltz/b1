@@ -100,6 +100,572 @@ import {
 import ErrorBoundary, { FormErrorBoundary } from './ErrorBoundary';
 
 /**
+ * Operational Cost Management Component
+ * Handles operational cost tracking for approved quotations
+ */
+const OperationalCost = () => {
+  const [operationalCosts, setOperationalCosts] = useState([]);
+  const [quotations, setQuotations] = useState([]);
+  const [selectedOperationalCost, setSelectedOperationalCost] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Load operational costs and quotations
+  useEffect(() => {
+    const loadData = () => {
+      try {
+        const operationalData = JSON.parse(localStorage.getItem('operationalCosts') || '[]');
+        const quotationsData = JSON.parse(localStorage.getItem('quotations') || '[]');
+
+        setOperationalCosts(operationalData);
+        setQuotations(quotationsData.filter(q => q.status === 'Approved'));
+      } catch (error) {
+        console.error('Error loading operational cost data:', error);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Filter operational costs based on search
+  const filteredOperationalCosts = useMemo(() => {
+    return operationalCosts.filter(cost =>
+      cost.quotationNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cost.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [operationalCosts, searchTerm]);
+
+  // Handle view operational cost details
+  const handleView = useCallback((operationalCost) => {
+    setSelectedOperationalCost(operationalCost);
+    setViewDialogOpen(true);
+  }, []);
+
+  // Update operational item cost
+  const updateOperationalItem = useCallback((operationalCostId, itemId, field, value) => {
+    setOperationalCosts(prev => prev.map(cost => {
+      if (cost.id === operationalCostId) {
+        const updatedItems = cost.operationalItems.map(item => {
+          if (item.id === itemId) {
+            const updatedItem = {
+              ...item,
+              operationalCosts: {
+                ...item.operationalCosts,
+                [field]: value
+              }
+            };
+
+            // Recalculate totals for this item
+            const totalOperationalCost = Object.values(updatedItem.operationalCosts)
+              .filter(cost => typeof cost === 'number')
+              .reduce((sum, cost) => sum + cost, 0);
+
+            const totalQuotationCost = Object.values(updatedItem.originalQuotationCosts)
+              .filter(cost => typeof cost === 'number')
+              .reduce((sum, cost) => sum + cost, 0);
+
+            updatedItem.costDifference = totalOperationalCost - totalQuotationCost;
+            updatedItem.margin = (updatedItem.originalQuotationCosts.value || 0) - totalOperationalCost;
+            updatedItem.profitability = updatedItem.margin > 0 ? 'Profit' : updatedItem.margin < 0 ? 'Loss' : 'Break-even';
+
+            return updatedItem;
+          }
+          return item;
+        });
+
+        // Recalculate quotation totals
+        const totalOpCost = updatedItems.reduce((sum, item) =>
+          sum + Object.values(item.operationalCosts).filter(cost => typeof cost === 'number').reduce((itemSum, cost) => itemSum + cost, 0), 0
+        );
+
+        const totalMargin = updatedItems.reduce((sum, item) => sum + item.margin, 0);
+
+        return {
+          ...cost,
+          operationalItems: updatedItems,
+          totalOperationalCost: totalOpCost,
+          totalMargin: totalMargin,
+          overallProfitability: totalMargin > 0 ? 'Profit' : totalMargin < 0 ? 'Loss' : 'Break-even',
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return cost;
+    }));
+  }, []);
+
+  // Add additional cost to operational item
+  const addAdditionalCost = useCallback((operationalCostId, itemId) => {
+    setOperationalCosts(prev => prev.map(cost => {
+      if (cost.id === operationalCostId) {
+        const updatedItems = cost.operationalItems.map(item => {
+          if (item.id === itemId) {
+            const newAdditionalCost = {
+              id: `add_${Date.now()}`,
+              description: '',
+              amount: 0,
+              currency: 'IDR',
+              category: 'Additional'
+            };
+
+            return {
+              ...item,
+              operationalCosts: {
+                ...item.operationalCosts,
+                additionalCosts: [...(item.operationalCosts.additionalCosts || []), newAdditionalCost]
+              }
+            };
+          }
+          return item;
+        });
+
+        return {
+          ...cost,
+          operationalItems: updatedItems,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return cost;
+    }));
+  }, []);
+
+  // Update additional cost
+  const updateAdditionalCost = useCallback((operationalCostId, itemId, additionalCostId, field, value) => {
+    setOperationalCosts(prev => prev.map(cost => {
+      if (cost.id === operationalCostId) {
+        const updatedItems = cost.operationalItems.map(item => {
+          if (item.id === itemId) {
+            const updatedAdditionalCosts = (item.operationalCosts.additionalCosts || []).map(addCost => {
+              if (addCost.id === additionalCostId) {
+                return { ...addCost, [field]: value };
+              }
+              return addCost;
+            });
+
+            return {
+              ...item,
+              operationalCosts: {
+                ...item.operationalCosts,
+                additionalCosts: updatedAdditionalCosts
+              }
+            };
+          }
+          return item;
+        });
+
+        return {
+          ...cost,
+          operationalItems: updatedItems,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return cost;
+    }));
+  }, []);
+
+  // Remove additional cost
+  const removeAdditionalCost = useCallback((operationalCostId, itemId, additionalCostId) => {
+    setOperationalCosts(prev => prev.map(cost => {
+      if (cost.id === operationalCostId) {
+        const updatedItems = cost.operationalItems.map(item => {
+          if (item.id === itemId) {
+            const filteredAdditionalCosts = (item.operationalCosts.additionalCosts || [])
+              .filter(addCost => addCost.id !== additionalCostId);
+
+            return {
+              ...item,
+              operationalCosts: {
+                ...item.operationalCosts,
+                additionalCosts: filteredAdditionalCosts
+              }
+            };
+          }
+          return item;
+        });
+
+        return {
+          ...cost,
+          operationalItems: updatedItems,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return cost;
+    }));
+  }, []);
+
+  // Save operational cost changes
+  const saveOperationalCost = useCallback(() => {
+    try {
+      localStorage.setItem('operationalCosts', JSON.stringify(operationalCosts));
+
+      // Update dashboard L/R data
+      if (selectedOperationalCost) {
+        const updatedLRData = {
+          quotationId: selectedOperationalCost.quotationId,
+          quotationNumber: selectedOperationalCost.quotationNumber,
+          customerName: selectedOperationalCost.customerName,
+          sellingPrice: selectedOperationalCost.totalQuotationValue,
+          totalCost: selectedOperationalCost.totalOperationalCost,
+          margin: selectedOperationalCost.totalMargin,
+          marginPercentage: selectedOperationalCost.totalQuotationValue > 0 ?
+            (selectedOperationalCost.totalMargin / selectedOperationalCost.totalQuotationValue) * 100 : 0,
+          status: 'Active',
+          lastUpdated: new Date().toISOString()
+        };
+
+        const existingLR = JSON.parse(localStorage.getItem('dashboardLR') || '[]');
+        const updatedLR = existingLR.filter(item => item.quotationId !== selectedOperationalCost.quotationId);
+        updatedLR.push(updatedLRData);
+        localStorage.setItem('dashboardLR', JSON.stringify(updatedLR));
+      }
+
+      setSnackbar({ open: true, message: 'Operational cost updated successfully!', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Error saving operational cost', severity: 'error' });
+    }
+  }, [operationalCosts, selectedOperationalCost]);
+
+  // Get profitability color
+  const getProfitabilityColor = useCallback((profitability) => {
+    switch (profitability) {
+      case 'Profit': return 'success';
+      case 'Loss': return 'error';
+      case 'Break-even': return 'warning';
+      default: return 'info';
+    }
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      <Box>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h4">Operational Cost Management</Typography>
+          <Typography variant="body2" color="textSecondary">
+            Track and manage operational costs for approved quotations
+          </Typography>
+        </Box>
+
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <TextField
+              fullWidth
+              label="Search operational costs..."
+              variant="outlined"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              }}
+            />
+          </CardContent>
+        </Card>
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Quotation #</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell>Items</TableCell>
+                <TableCell>Quotation Value</TableCell>
+                <TableCell>Operational Cost</TableCell>
+                <TableCell>Margin</TableCell>
+                <TableCell>Profitability</TableCell>
+                <TableCell>Last Updated</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredOperationalCosts.map((cost) => (
+                <TableRow key={cost.id} hover>
+                  <TableCell>
+                    <Typography variant="subtitle2">{cost.quotationNumber}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{cost.customerName}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{cost.operationalItems?.length || 0} items</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatCurrency(cost.totalQuotationValue, 'IDR')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatCurrency(cost.totalOperationalCost, 'IDR')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color={cost.totalMargin >= 0 ? 'success.main' : 'error.main'}>
+                      {formatCurrency(cost.totalMargin, 'IDR')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={cost.overallProfitability}
+                      color={getProfitabilityColor(cost.overallProfitability)}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {new Date(cost.updatedAt).toLocaleDateString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleView(cost)}
+                    >
+                      View & Edit
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Operational Cost Detail Dialog */}
+        <Dialog
+          open={viewDialogOpen}
+          onClose={() => setViewDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+          PaperProps={{ sx: { height: '90vh' } }}
+        >
+          <DialogTitle>
+            Operational Cost Management - {selectedOperationalCost?.quotationNumber}
+          </DialogTitle>
+
+          <DialogContent>
+            {selectedOperationalCost && (
+              <Box>
+                {/* Summary Header */}
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={3}>
+                        <Typography variant="subtitle2" color="textSecondary">Customer</Typography>
+                        <Typography variant="body1">{selectedOperationalCost.customerName}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <Typography variant="subtitle2" color="textSecondary">Quotation Value</Typography>
+                        <Typography variant="body1">{formatCurrency(selectedOperationalCost.totalQuotationValue, 'IDR')}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <Typography variant="subtitle2" color="textSecondary">Total Operational Cost</Typography>
+                        <Typography variant="body1">{formatCurrency(selectedOperationalCost.totalOperationalCost, 'IDR')}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <Typography variant="subtitle2" color="textSecondary">Overall Margin</Typography>
+                        <Typography variant="body1" color={selectedOperationalCost.totalMargin >= 0 ? 'success.main' : 'error.main'}>
+                          {formatCurrency(selectedOperationalCost.totalMargin, 'IDR')} ({formatNumber(selectedOperationalCost.totalMargin / selectedOperationalCost.totalQuotationValue * 100, 2)}%)
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Operational Items */}
+                <Typography variant="h6" gutterBottom>Operational Items</Typography>
+
+                {selectedOperationalCost.operationalItems?.map((item, index) => (
+                  <Card key={item.id} sx={{ mb: 3 }}>
+                    <CardContent>
+                      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        {item.description || `Item ${index + 1}`}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" gutterBottom>
+                        Weight: {item.weight}kg • Volume: {item.volume}cbm
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        {/* Original Quotation Costs (Read-only) */}
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" gutterBottom sx={{ color: 'primary.main' }}>
+                            Original Quotation Costs
+                          </Typography>
+                          <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Cost Type</TableCell>
+                                  <TableCell align="right">Amount</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell>Cargo Value</TableCell>
+                                  <TableCell align="right">
+                                    {formatCurrency(item.originalQuotationCosts.value, item.originalQuotationCosts.currency)}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell>Basic Freight</TableCell>
+                                  <TableCell align="right">
+                                    {formatCurrency(item.originalQuotationCosts.basicFreight, item.originalQuotationCosts.currency)}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell>Bunker Surcharge</TableCell>
+                                  <TableCell align="right">
+                                    {formatCurrency(item.originalQuotationCosts.bunkerSurcharge, item.originalQuotationCosts.currency)}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell>Insurance</TableCell>
+                                  <TableCell align="right">
+                                    {formatCurrency(item.originalQuotationCosts.insuranceCost, item.originalQuotationCosts.currency)}
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Grid>
+
+                        {/* Operational Costs (Editable) */}
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
+                            Operational Costs (Editable)
+                          </Typography>
+
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={8}>
+                              <TextField
+                                fullWidth
+                                label="Actual Freight Cost"
+                                value={formatNumber(item.operationalCosts.actualFreightCost || 0)}
+                                onChange={(e) => {
+                                  const cleanedValue = formatCurrencyInput(e.target.value);
+                                  const numericValue = parseFloat(cleanedValue) || 0;
+                                  updateOperationalItem(selectedOperationalCost.id, item.id, 'actualFreightCost', numericValue);
+                                }}
+                                InputProps={{
+                                  startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>Rp</Typography>
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                onClick={() => addAdditionalCost(selectedOperationalCost.id, item.id)}
+                                startIcon={<AddIcon />}
+                              >
+                                Add Cost
+                              </Button>
+                            </Grid>
+                          </Grid>
+
+                          {/* Additional Costs */}
+                          {(item.operationalCosts.additionalCosts || []).map((addCost, addIndex) => (
+                            <Grid container spacing={2} key={addCost.id} sx={{ mt: 1 }}>
+                              <Grid item xs={12} sm={5}>
+                                <TextField
+                                  fullWidth
+                                  label="Cost Description"
+                                  value={addCost.description || ''}
+                                  onChange={(e) => updateAdditionalCost(selectedOperationalCost.id, item.id, addCost.id, 'description', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <TextField
+                                  fullWidth
+                                  label="Amount"
+                                  value={formatNumber(addCost.amount || 0)}
+                                  onChange={(e) => {
+                                    const cleanedValue = formatCurrencyInput(e.target.value);
+                                    const numericValue = parseFloat(cleanedValue) || 0;
+                                    updateAdditionalCost(selectedOperationalCost.id, item.id, addCost.id, 'amount', numericValue);
+                                  }}
+                                  InputProps={{
+                                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(addCost.currency)}</Typography>
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={12} sm={2}>
+                                <FormControl fullWidth>
+                                  <InputLabel>Currency</InputLabel>
+                                  <Select
+                                    value={addCost.currency || 'IDR'}
+                                    onChange={(e) => updateAdditionalCost(selectedOperationalCost.id, item.id, addCost.id, 'currency', e.target.value)}
+                                    label="Currency"
+                                  >
+                                    <MenuItem value="IDR">🇮🇩 IDR</MenuItem>
+                                    <MenuItem value="USD">🇺🇸 USD</MenuItem>
+                                  </Select>
+                                </FormControl>
+                              </Grid>
+                              <Grid item xs={12} sm={1}>
+                                <IconButton
+                                  onClick={() => removeAdditionalCost(selectedOperationalCost.id, item.id, addCost.id)}
+                                  color="error"
+                                  size="small"
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+
+                          {/* Cost Comparison */}
+                          <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                            <Typography variant="subtitle2" gutterBottom>
+                              Cost Analysis:
+                            </Typography>
+                            <Typography variant="body2">
+                              Cost Difference: <span style={{ color: item.costDifference >= 0 ? 'error.main' : 'success.main' }}>
+                                {formatCurrency(item.costDifference, 'IDR')}
+                              </span>
+                            </Typography>
+                            <Typography variant="body2">
+                              Margin: <span style={{ color: item.margin >= 0 ? 'success.main' : 'error.main' }}>
+                                {formatCurrency(item.margin, 'IDR')}
+                              </span>
+                            </Typography>
+                            <Chip
+                              label={item.profitability}
+                              color={getProfitabilityColor(item.profitability)}
+                              size="small"
+                              sx={{ mt: 1 }}
+                            />
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+            <Button onClick={saveOperationalCost} variant="contained">
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </ErrorBoundary>
+  );
+};
+
+/**
  * Custom hook for Quotation form management
  */
 const useQuotationForm = (initialValues = {}, validationRules = {}) => {
@@ -574,7 +1140,7 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
     }
   }, [values.sellingPrice, values.estimatedCost, totals.grandTotal, values.margin, setValues]);
 
-  // Optimized form submission
+  // Enhanced form submission with operational cost creation
   const handleSubmit = useCallback(async (onSave) => {
     if (isSubmitting) return;
 
@@ -588,11 +1154,22 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
           updatedAt: new Date().toISOString()
         };
 
-        return await onSave(quotationData);
+        const savedQuotation = await onSave(quotationData);
+
+        // Auto-create operational cost record if quotation is approved
+        if (savedQuotation && formData.status === 'Approved') {
+          await createOperationalCostRecord(savedQuotation);
+        }
+
+        return savedQuotation;
       });
 
       if (result) {
-        setSnackbar({ open: true, message: `Quotation ${values.quotationNumber} ${values.id ? 'updated' : 'created'} successfully!`, severity: 'success' });
+        const statusMessage = values.status === 'Approved' ?
+          'approved and operational cost record created' :
+          values.id ? 'updated' : 'created';
+
+        setSnackbar({ open: true, message: `Quotation ${values.quotationNumber} ${statusMessage} successfully!`, severity: 'success' });
         return { success: true, data: result };
       } else {
         setSnackbar({ open: true, message: 'Please correct the validation errors', severity: 'error' });
@@ -602,7 +1179,116 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
       setSnackbar({ open: true, message: `Error saving quotation: ${error.message}`, severity: 'error' });
       throw error;
     }
-  }, [isSubmitting, validateAndSubmit, totals, values.id, values.quotationNumber, setSnackbar]);
+  }, [isSubmitting, validateAndSubmit, totals, values.id, values.quotationNumber, values.status, setSnackbar]);
+
+  // Create operational cost record for approved quotations
+  const createOperationalCostRecord = useCallback(async (quotationData) => {
+    try {
+      const operationalCostData = {
+        quotationId: quotationData.id,
+        quotationNumber: quotationData.quotationNumber,
+        customerName: quotationData.customerName,
+        status: 'Active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+
+        // Operational cost items based on quotation
+        operationalItems: (quotationData.cargoItems || []).map(item => ({
+          id: `op_${item.id}`,
+          quotationItemId: item.id,
+          description: item.description,
+          weight: item.weight,
+          volume: item.volume,
+
+          // Original quotation costs (read-only)
+          originalQuotationCosts: {
+            value: item.value,
+            currency: item.currency,
+            basicFreight: item.basicFreight,
+            bunkerSurcharge: item.bunkerSurcharge,
+            pickupCharge: item.pickupCharge,
+            exportDocumentationFee: item.exportDocumentationFee,
+            originTHC: item.originTHC,
+            importDocumentationFee: item.importDocumentationFee,
+            destinationTHC: item.destinationTHC,
+            insuranceCost: item.insuranceCost
+          },
+
+          // Operational costs (editable)
+          operationalCosts: {
+            actualFreightCost: item.basicFreight || 0,
+            actualBunkerSurcharge: item.bunkerSurcharge || 0,
+            actualPickupCharge: item.pickupCharge || 0,
+            actualExportDocFee: item.exportDocumentationFee || 0,
+            actualOriginTHC: item.originTHC || 0,
+            actualImportDocFee: item.importDocumentationFee || 0,
+            actualDestinationTHC: item.destinationTHC || 0,
+            actualInsuranceCost: item.insuranceCost || 0,
+
+            // Additional operational costs
+            additionalCosts: []
+          },
+
+          // Comparison and analysis
+          costDifference: 0,
+          margin: 0,
+          profitability: 'Normal'
+        })),
+
+        // Additional operational costs at quotation level
+        additionalOperationalCosts: [],
+
+        // Summary calculations
+        totalQuotationValue: quotationData.sellingPrice || 0,
+        totalOperationalCost: 0,
+        totalMargin: 0,
+        overallProfitability: 'Normal'
+      };
+
+      // Save operational cost record
+      const operationalCostService = {
+        create: (data) => {
+          const existing = JSON.parse(localStorage.getItem('operationalCosts') || '[]');
+          const updated = [...existing, { ...data, id: Date.now().toString() }];
+          localStorage.setItem('operationalCosts', JSON.stringify(updated));
+          return data;
+        }
+      };
+
+      await operationalCostService.create(operationalCostData);
+
+      // Update dashboard L/R data
+      updateDashboardLR(quotationData, operationalCostData);
+
+    } catch (error) {
+      console.error('Error creating operational cost record:', error);
+    }
+  }, []);
+
+  // Update dashboard L/R data
+  const updateDashboardLR = useCallback((quotationData, operationalCostData) => {
+    try {
+      const lrData = {
+        quotationId: quotationData.id,
+        quotationNumber: quotationData.quotationNumber,
+        customerName: quotationData.customerName,
+        sellingPrice: quotationData.sellingPrice || 0,
+        totalCost: operationalCostData.totalOperationalCost || 0,
+        margin: quotationData.margin || 0,
+        marginPercentage: quotationData.marginPercentage || 0,
+        status: 'Active',
+        lastUpdated: new Date().toISOString()
+      };
+
+      const existingLR = JSON.parse(localStorage.getItem('dashboardLR') || '[]');
+      const updatedLR = existingLR.filter(item => item.quotationId !== quotationData.id);
+      updatedLR.push(lrData);
+      localStorage.setItem('dashboardLR', JSON.stringify(updatedLR));
+
+    } catch (error) {
+      console.error('Error updating dashboard L/R:', error);
+    }
+  }, []);
 
   return {
     // Form state
@@ -2764,5 +3450,8 @@ const Quotation = () => {
     </ErrorBoundary>
   );
 };
+
+// Export OperationalCost component
+export { OperationalCost };
 
 export default Quotation;

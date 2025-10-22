@@ -120,7 +120,7 @@ import {
 // Components
 import Dashboard from './components/Dashboard';
 import CustomerManagement from './components/CustomerManagement';
-import Quotation from './components/Quotation';
+import Quotation, { OperationalCost } from './components/Quotation';
 import ShippingManagement from './components/ShippingManagement';
 import VendorManagement from './components/VendorManagement';
 import PurchaseOrder from './components/PurchaseOrder';
@@ -134,6 +134,8 @@ import ProfitLossReport from './components/ProfitLossReport';
 import BalanceSheetReport from './components/BalanceSheetReport';
 import CashFlowReport from './components/CashFlowReport';
 import AgingReport from './components/AgingReport';
+
+// Import OperationalCost component (defined in Quotation.js)
 
 const drawerWidth = 280;
 
@@ -154,6 +156,7 @@ const menuItems = [
   { text: 'HS Code Management', icon: <CategoryIcon />, path: '/hs-codes', category: 'operations' },
 
   // Internal Cost Management (Management Only)
+  { text: 'Operational Cost', icon: <MoneyIcon />, path: '/operational-cost', category: 'management' },
 
   // Financial Management
   { text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices', category: 'finance' },
@@ -329,6 +332,7 @@ function App() {
           <Route path="/aging-report" element={<AgingReport />} />
           <Route path="/finance-reports" element={<FinanceReporting />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/operational-cost" element={<OperationalCost />} />
         </Routes>
       </Box>
     </Box>

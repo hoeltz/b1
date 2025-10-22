@@ -24,6 +24,13 @@ import {
 } from '@mui/icons-material';
 import {
   Alert,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import { salesOrderService, customerService, invoiceService } from '../services/localStorage';
 import { dashboardStats } from '../data/sampleData';
@@ -31,6 +38,109 @@ import notificationService, { useNotifications } from '../services/notificationS
 import { handleError } from '../services/errorHandler';
 import { useDashboardStats, useDataSync } from '../hooks/useDataSync';
 import { formatCurrency } from '../services/currencyUtils';
+
+// L/R (Loss/Revenue) Tracking Component
+const LRTrackingTable = ({ lrData }) => {
+  const getProfitabilityColor = (margin) => {
+    if (margin > 0) return 'success.main';
+    if (margin < 0) return 'error.main';
+    return 'warning.main';
+  };
+
+  const getProfitabilityLabel = (margin) => {
+    if (margin > 0) return 'Profit';
+    if (margin < 0) return 'Loss';
+    return 'Break-even';
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+          📊 L/R (Loss/Revenue) per Quotation
+        </Typography>
+        <Typography variant="body2" color="textSecondary" gutterBottom sx={{ mb: 2 }}>
+          Real-time comparison between quotation prices and operational costs
+        </Typography>
+
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'primary.light' }}>
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Quotation #</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Customer</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Selling Price</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Total Cost</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Margin</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Margin %</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Last Updated</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lrData.slice(0, 10).map((item) => (
+                <TableRow key={item.quotationId} hover>
+                  <TableCell>
+                    <Typography variant="subtitle2">{item.quotationNumber}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{item.customerName}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      {formatCurrency(item.sellingPrice, 'IDR')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      {formatCurrency(item.totalCost, 'IDR')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body2"
+                      sx={{ color: getProfitabilityColor(item.margin) }}
+                    >
+                      {formatCurrency(item.margin, 'IDR')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body2"
+                      sx={{ color: getProfitabilityColor(item.margin) }}
+                    >
+                      {formatCurrency(item.marginPercentage, 'IDR') || '0%'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getProfitabilityLabel(item.margin)}
+                      color={item.margin > 0 ? 'success' : item.margin < 0 ? 'error' : 'warning'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {new Date(item.lastUpdated).toLocaleDateString()}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {lrData.length === 0 && (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="body2" color="textSecondary">
+              No operational cost data available. Approve quotations to see L/R tracking.
+            </Typography>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 const StatCard = ({ title, value, icon, color, subtitle, children }) => (
   <Card sx={{ height: '100%', minHeight: 120 }}>
@@ -211,6 +321,7 @@ const Dashboard = () => {
 
   const [alerts, setAlerts] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [lrData, setLRData] = useState([]);
 
   // Use the notification hook
   const notificationData = useNotifications();
@@ -221,6 +332,30 @@ const Dashboard = () => {
       setNotifications(notificationData.notifications || []);
     }
   }, [notificationData?.notifications?.length]); // Only depend on notifications length
+
+  // Load L/R data
+  useEffect(() => {
+    const loadLRData = () => {
+      try {
+        const lrDataFromStorage = JSON.parse(localStorage.getItem('dashboardLR') || '[]');
+        setLRData(lrDataFromStorage);
+      } catch (error) {
+        console.error('Error loading L/R data:', error);
+      }
+    };
+
+    loadLRData();
+
+    // Listen for storage changes to update L/R data in real-time
+    const handleStorageChange = (e) => {
+      if (e.key === 'dashboardLR') {
+        loadLRData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Get recent orders from real-time data
   const recentOrders = ordersData?.slice(0, 5) || [];
@@ -418,7 +553,7 @@ const Dashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Main Content - Full Width without Quick Actions */}
+      {/* Main Content */}
       <Grid container spacing={3}>
         <Grid item xs={12}>
           {ordersLoading ? (
@@ -438,6 +573,15 @@ const Dashboard = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* L/R Tracking Table */}
+      {lrData.length > 0 && (
+        <Grid container spacing={3} sx={{ mt: 2 }}>
+          <Grid item xs={12}>
+            <LRTrackingTable lrData={lrData} />
+          </Grid>
+        </Grid>
+      )}
 
       {/* Additional Stats */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
