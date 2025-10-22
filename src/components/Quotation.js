@@ -87,18 +87,14 @@ import {
   freightValidationRules
 } from '../services/errorHandler';
 import notificationService from '../services/notificationService';
-import { formatCurrency } from '../services/currencyUtils';
+import {
+  formatCurrency,
+  formatCurrencyInput,
+  parseCurrencyInput,
+  getCurrencySymbol,
+  formatNumber
+} from '../services/currencyUtils';
 
-// Helper function to format currency input
-const formatCurrencyInput = (value) => {
-  // Remove any non-numeric characters except decimal point
-  const numericValue = value.replace(/[^\d.]/g, '');
-  const parts = numericValue.split('.');
-  if (parts.length > 2) {
-    return parts[0] + '.' + parts.slice(1).join('');
-  }
-  return numericValue;
-};
 
 // Import optimized components and hooks
 import ErrorBoundary, { FormErrorBoundary } from './ErrorBoundary';
@@ -233,17 +229,65 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
       description: '',
       weight: 0,
       volume: 0,
-      value: 0, // Single value field
-      currency: 'IDR', // Currency selection for the value
+      value: 0,
+      currency: 'IDR',
       hsCode: '',
       hsCodeDescription: '',
       importDuty: 0,
       vat: 11,
       excise: 0,
-      freightCost: 0,
-      freightCostUSD: 0,
+
+      // Origin costs
+      pickupCharge: 0,
+      pickupChargeUSD: 0,
+      exportDocumentationFee: 0,
+      exportDocumentationFeeUSD: 0,
+      originTHC: 0,
+      originTHCUSD: 0,
+      vgmFee: 0,
+      vgmFeeUSD: 0,
+
+      // Freight costs
+      basicFreight: 0,
+      basicFreightUSD: 0,
+      bunkerSurcharge: 0,
+      bunkerSurchargeUSD: 0,
+      securitySurcharge: 0,
+      securitySurchargeUSD: 0,
+      warRiskSurcharge: 0,
+      warRiskSurchargeUSD: 0,
+
+      // Destination costs
+      importDocumentationFee: 0,
+      importDocumentationFeeUSD: 0,
+      destinationTHC: 0,
+      destinationTHCUSD: 0,
+      deliveryCharge: 0,
+      deliveryChargeUSD: 0,
+
+      // Additional costs
+      storageFee: 0,
+      storageFeeUSD: 0,
+      detentionFee: 0,
+      detentionFeeUSD: 0,
+      specialHandlingFee: 0,
+      specialHandlingFeeUSD: 0,
+
+      // Insurance
       insuranceCost: 0,
       insuranceCostUSD: 0,
+
+      // Container details
+      containerType: '20DC',
+      containerNumber: '',
+      sealNumber: '',
+
+      // Regulatory
+      certificateRequired: false,
+      inspectionRequired: false,
+      quarantineRequired: false,
+
+      // Other
       hazardous: false,
       createdAt: new Date().toISOString()
     };
@@ -725,7 +769,7 @@ const RouteServiceTab = memo(({
 RouteServiceTab.displayName = 'RouteServiceTab';
 
 /**
- * Cargo Details Tab Component
+ * Enhanced Cargo Details Tab Component with Comprehensive Cost Fields
  */
 const CargoDetailsTab = memo(({
   values,
@@ -741,6 +785,19 @@ const CargoDetailsTab = memo(({
   onRemoveItem,
   hsCodes
 }) => {
+  // Container type options
+  const containerTypes = [
+    { value: '20DC', label: '20\' Dry Container' },
+    { value: '40DC', label: '40\' Dry Container' },
+    { value: '40HC', label: '40\' High Cube' },
+    { value: '20RF', label: '20\' Reefer' },
+    { value: '40RF', label: '40\' Reefer' },
+    { value: '20OT', label: '20\' Open Top' },
+    { value: '40OT', label: '40\' Open Top' },
+    { value: '20FR', label: '20\' Flat Rack' },
+    { value: '40FR', label: '40\' Flat Rack' }
+  ];
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -751,9 +808,13 @@ const CargoDetailsTab = memo(({
       </Box>
 
       {cargoItems.map((item, index) => (
-        <Card key={item.id} sx={{ mb: 2 }}>
+        <Card key={item.id} sx={{ mb: 3 }}>
           <CardContent>
-            <Grid container spacing={2}>
+            {/* Basic Information Section */}
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+              Basic Information
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -786,18 +847,15 @@ const CargoDetailsTab = memo(({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label={`Value (${item.currency || 'IDR'})`}
-                  type="number"
-                  value={item.value || 0}
+                  label={`Value (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.value || 0)}
                   onChange={(e) => {
-                    const numericValue = parseFloat(e.target.value) || 0;
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
                     onUpdateItem(item.id, 'value', numericValue);
                   }}
-                  onBlur={(e) => {
-                    // Format the value when field loses focus
-                    const numericValue = parseFloat(e.target.value) || 0;
-                    const formattedValue = formatCurrencyInput(numericValue.toString());
-                    onUpdateItem(item.id, 'value', formattedValue);
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
                   }}
                 />
               </Grid>
@@ -810,13 +868,340 @@ const CargoDetailsTab = memo(({
                     onChange={(e) => onUpdateItem(item.id, 'currency', e.target.value)}
                     label="Currency"
                   >
-                    <MenuItem value="IDR">IDR (Rupiah)</MenuItem>
-                    <MenuItem value="USD">USD (Dollar)</MenuItem>
+                    {CURRENCIES.map(currency => (
+                      <MenuItem key={currency.code} value={currency.code}>
+                        {currency.flag} {currency.code} - {currency.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+
+            {/* Container Details Section */}
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+              Container Details
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Container Type</InputLabel>
+                  <Select
+                    value={item.containerType || '20DC'}
+                    onChange={(e) => onUpdateItem(item.id, 'containerType', e.target.value)}
+                    label="Container Type"
+                  >
+                    {containerTypes.map(type => (
+                      <MenuItem key={type.value} value={type.value}>
+                        {type.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={3}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Container Number"
+                  value={item.containerNumber || ''}
+                  onChange={(e) => onUpdateItem(item.id, 'containerNumber', e.target.value)}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Seal Number"
+                  value={item.sealNumber || ''}
+                  onChange={(e) => onUpdateItem(item.id, 'sealNumber', e.target.value)}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Cost Breakdown Sections */}
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+              Cost Breakdown
+            </Typography>
+
+            {/* Origin Costs */}
+            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2, color: 'secondary.main' }}>
+              Origin Costs
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Pickup Charge (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.pickupCharge || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'pickupCharge', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Pickup Charge (USD)"
+                  value={formatNumber(item.pickupChargeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'pickupChargeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Export Doc Fee (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.exportDocumentationFee || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'exportDocumentationFee', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Export Doc Fee (USD)"
+                  value={formatNumber(item.exportDocumentationFeeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'exportDocumentationFeeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Origin THC (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.originTHC || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'originTHC', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Origin THC (USD)"
+                  value={formatNumber(item.originTHCUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'originTHCUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Freight Costs */}
+            <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
+              Freight Costs
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Basic Freight (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.basicFreight || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'basicFreight', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Basic Freight (USD)"
+                  value={formatNumber(item.basicFreightUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'basicFreightUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Bunker Surcharge (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.bunkerSurcharge || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'bunkerSurcharge', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Bunker Surcharge (USD)"
+                  value={formatNumber(item.bunkerSurchargeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'bunkerSurchargeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Destination Costs */}
+            <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
+              Destination Costs
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Import Doc Fee (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.importDocumentationFee || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'importDocumentationFee', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Import Doc Fee (USD)"
+                  value={formatNumber(item.importDocumentationFeeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'importDocumentationFeeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Destination THC (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.destinationTHC || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'destinationTHC', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Destination THC (USD)"
+                  value={formatNumber(item.destinationTHCUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'destinationTHCUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Insurance and Additional Costs */}
+            <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
+              Insurance & Additional Costs
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={`Insurance (${getCurrencySymbol(item.currency)})`}
+                  value={formatNumber(item.insuranceCost || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'insuranceCost', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(item.currency)}</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Insurance (USD)"
+                  value={formatNumber(item.insuranceCostUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    onUpdateItem(item.id, 'insuranceCostUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            {/* HS Code and Regulatory */}
+            <Typography variant="subtitle2" gutterBottom sx={{ color: 'secondary.main' }}>
+              HS Code & Regulatory
+            </Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
                 <Autocomplete
                   options={hsCodes}
                   getOptionLabel={(option) => `${option.code} - ${option.description}`}
@@ -834,48 +1219,8 @@ const CargoDetailsTab = memo(({
                 />
               </Grid>
 
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  label="Freight Cost (IDR)"
-                  type="number"
-                  value={item.freightCost || 0}
-                  onChange={(e) => onUpdateItem(item.id, 'freightCost', parseFloat(e.target.value) || 0)}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  label="Freight Cost (USD)"
-                  type="number"
-                  value={item.freightCostUSD || 0}
-                  onChange={(e) => onUpdateItem(item.id, 'freightCostUSD', parseFloat(e.target.value) || 0)}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  label="Insurance Cost (IDR)"
-                  type="number"
-                  value={item.insuranceCost || 0}
-                  onChange={(e) => onUpdateItem(item.id, 'insuranceCost', parseFloat(e.target.value) || 0)}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  label="Insurance Cost (USD)"
-                  type="number"
-                  value={item.insuranceCostUSD || 0}
-                  onChange={(e) => onUpdateItem(item.id, 'insuranceCostUSD', parseFloat(e.target.value) || 0)}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={3}>
-                <Box display="flex" gap={1} alignItems="center">
+              <Grid item xs={12} sm={6}>
+                <Box display="flex" gap={1} flexWrap="wrap">
                   <FormControlLabel
                     control={
                       <Switch
@@ -885,12 +1230,34 @@ const CargoDetailsTab = memo(({
                     }
                     label="Hazardous"
                   />
-                  <IconButton onClick={() => onRemoveItem(item.id)} color="error">
-                    <DeleteIcon />
-                  </IconButton>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={item.certificateRequired}
+                        onChange={(e) => onUpdateItem(item.id, 'certificateRequired', e.target.checked)}
+                      />
+                    }
+                    label="Certificate Required"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={item.inspectionRequired}
+                        onChange={(e) => onUpdateItem(item.id, 'inspectionRequired', e.target.checked)}
+                      />
+                    }
+                    label="Inspection Required"
+                  />
                 </Box>
               </Grid>
             </Grid>
+
+            {/* Action Buttons */}
+            <Box display="flex" justifyContent="flex-end" mt={2}>
+              <IconButton onClick={() => onRemoveItem(item.id)} color="error">
+                <DeleteIcon />
+              </IconButton>
+            </Box>
           </CardContent>
         </Card>
       ))}
