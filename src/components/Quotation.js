@@ -2243,6 +2243,9 @@ const Quotation = () => {
     addCargoItem,
     updateCargoItem,
     removeCargoItem,
+    addOtherCost,
+    updateOtherCost,
+    removeOtherCost,
     handleSubmit,
     generateQuotationNumber,
     totals
