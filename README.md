@@ -290,4 +290,4 @@ For support and questions:
 
 ---
 
-**Built with ❤️ for Indonesian Freight Forwarding Industry**
+**Built with ❤️ for Indonesian Freight Forwarding Industry**"Update: $(date)" 
