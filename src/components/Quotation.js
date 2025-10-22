@@ -315,58 +315,207 @@ const useQuotationForm = (initialValues = {}, validationRules = {}) => {
   }, [setValues]);
 
 
-  // Calculate totals
+  // Enhanced comprehensive cost calculation
   const calculateTotals = useCallback(() => {
-    // Calculate additional service costs with dual currency
+    const exchangeRate = values.exchangeRate || 15000;
+
+    // 1. Calculate cargo item costs with comprehensive breakdown
+    const cargoCosts = values.cargoItems?.reduce((acc, item) => {
+      const itemCurrency = item.currency || 'IDR';
+      const isUSD = itemCurrency === 'USD';
+
+      // Convert all costs to IDR for consistent calculation
+      const convertToIDR = (amount) => isUSD ? (amount || 0) * exchangeRate : (amount || 0);
+
+      // Origin costs per item
+      const pickupCharge = convertToIDR(item.pickupCharge);
+      const exportDocFee = convertToIDR(item.exportDocumentationFee);
+      const originTHC = convertToIDR(item.originTHC);
+      const vgmFee = convertToIDR(item.vgmFee);
+
+      // Freight costs per item
+      const basicFreight = convertToIDR(item.basicFreight);
+      const bunkerSurcharge = convertToIDR(item.bunkerSurcharge);
+      const securitySurcharge = convertToIDR(item.securitySurcharge);
+      const warRiskSurcharge = convertToIDR(item.warRiskSurcharge);
+
+      // Destination costs per item
+      const importDocFee = convertToIDR(item.importDocumentationFee);
+      const destinationTHC = convertToIDR(item.destinationTHC);
+      const deliveryCharge = convertToIDR(item.deliveryCharge);
+
+      // Additional costs per item
+      const storageFee = convertToIDR(item.storageFee);
+      const detentionFee = convertToIDR(item.detentionFee);
+      const specialHandlingFee = convertToIDR(item.specialHandlingFee);
+      const insuranceCost = convertToIDR(item.insuranceCost);
+
+      // Calculate totals per item
+      const totalOriginCosts = pickupCharge + exportDocFee + originTHC + vgmFee;
+      const totalFreightCosts = basicFreight + bunkerSurcharge + securitySurcharge + warRiskSurcharge;
+      const totalDestinationCosts = importDocFee + destinationTHC + deliveryCharge;
+      const totalAdditionalCosts = storageFee + detentionFee + specialHandlingFee + insuranceCost;
+
+      const itemTotalCost = totalOriginCosts + totalFreightCosts + totalDestinationCosts + totalAdditionalCosts;
+
+      return {
+        // Per item totals
+        totalOriginCosts: acc.totalOriginCosts + totalOriginCosts,
+        totalFreightCosts: acc.totalFreightCosts + totalFreightCosts,
+        totalDestinationCosts: acc.totalDestinationCosts + totalDestinationCosts,
+        totalAdditionalCosts: acc.totalAdditionalCosts + totalAdditionalCosts,
+        itemTotalCost: acc.itemTotalCost + itemTotalCost,
+
+        // Detailed breakdowns
+        pickupCharges: acc.pickupCharges + pickupCharge,
+        exportDocFees: acc.exportDocFees + exportDocFee,
+        originTHCs: acc.originTHCs + originTHC,
+        vgmFees: acc.vgmFees + vgmFee,
+        basicFreights: acc.basicFreights + basicFreight,
+        bunkerSurcharges: acc.bunkerSurcharges + bunkerSurcharge,
+        securitySurcharges: acc.securitySurcharges + securitySurcharge,
+        warRiskSurcharges: acc.warRiskSurcharges + warRiskSurcharge,
+        importDocFees: acc.importDocFees + importDocFee,
+        destinationTHCs: acc.destinationTHCs + destinationTHC,
+        deliveryCharges: acc.deliveryCharges + deliveryCharge,
+        storageFees: acc.storageFees + storageFee,
+        detentionFees: acc.detentionFees + detentionFee,
+        specialHandlingFees: acc.specialHandlingFees + specialHandlingFee,
+        insuranceCosts: acc.insuranceCosts + insuranceCost,
+
+        // Item count
+        itemCount: acc.itemCount + 1
+      };
+    }, {
+      // Initialize all cost categories
+      totalOriginCosts: 0,
+      totalFreightCosts: 0,
+      totalDestinationCosts: 0,
+      totalAdditionalCosts: 0,
+      itemTotalCost: 0,
+
+      // Detailed costs
+      pickupCharges: 0,
+      exportDocFees: 0,
+      originTHCs: 0,
+      vgmFees: 0,
+      basicFreights: 0,
+      bunkerSurcharges: 0,
+      securitySurcharges: 0,
+      warRiskSurcharges: 0,
+      importDocFees: 0,
+      destinationTHCs: 0,
+      deliveryCharges: 0,
+      storageFees: 0,
+      detentionFees: 0,
+      specialHandlingFees: 0,
+      insuranceCosts: 0,
+
+      itemCount: 0
+    }) || {
+      totalOriginCosts: 0,
+      totalFreightCosts: 0,
+      totalDestinationCosts: 0,
+      totalAdditionalCosts: 0,
+      itemTotalCost: 0,
+      pickupCharges: 0,
+      exportDocFees: 0,
+      originTHCs: 0,
+      vgmFees: 0,
+      basicFreights: 0,
+      bunkerSurcharges: 0,
+      securitySurcharges: 0,
+      warRiskSurcharges: 0,
+      importDocFees: 0,
+      destinationTHCs: 0,
+      deliveryCharges: 0,
+      storageFees: 0,
+      detentionFees: 0,
+      specialHandlingFees: 0,
+      insuranceCosts: 0,
+      itemCount: 0
+    };
+
+    // 2. Calculate additional service costs (main quotation level)
     const customsClearanceFee = values.customsClearanceCurrency === 'USD' ?
-      ((values.customsClearanceFeeUSD || 0)) * (values.exchangeRate || 15000) :
+      ((values.customsClearanceFeeUSD || 0)) * exchangeRate :
       (values.customsClearanceFee || 0);
 
     const documentationFee = values.documentationCurrency === 'USD' ?
-      (values.documentationFeeUSD || 0) * (values.exchangeRate || 15000) :
+      (values.documentationFeeUSD || 0) * exchangeRate :
       (values.documentationFee || 0);
 
     const thcFee = values.thcCurrency === 'USD' ?
-      (values.thcFeeUSD || 0) * (values.exchangeRate || 15000) :
+      (values.thcFeeUSD || 0) * exchangeRate :
       (values.thcFee || 0);
 
     const otherFees = values.otherFeesCurrency === 'USD' ?
-      (values.otherFeesUSD || 0) * (values.exchangeRate || 15000) :
+      (values.otherFeesUSD || 0) * exchangeRate :
       (values.otherFees || 0);
 
-    const subtotal = (customsClearanceFee || 0) + (documentationFee || 0) + (thcFee || 0) + (otherFees || 0);
-
-    // Calculate cargo value for tax calculation from actual cargo items
+    // 3. Calculate cargo value for tax (from cargo items + additional costs)
     const cargoValueForTax = values.cargoItems?.reduce((total, item) => {
       const itemValue = item.currency === 'USD' ?
-        (item.value || 0) * (values.exchangeRate || 15000) :
+        (item.value || 0) * exchangeRate :
         (item.value || 0);
       return total + (itemValue || 0);
     }, 0) || 0;
 
-    // Use actual cargo value for tax calculation, fallback to manual input or default
-    const taxBaseValue = cargoValueForTax || values.cargoValueForTax || 100000000;
+    // 4. Enhanced tax base calculation (cargo value + freight costs + additional costs)
+    const freightAndAdditionalCosts = cargoCosts.totalFreightCosts + cargoCosts.totalAdditionalCosts;
+    const enhancedTaxBaseValue = cargoValueForTax + freightAndAdditionalCosts;
 
-    const importDuty = (taxBaseValue || 0) * ((values.importDuty || 0) / 100);
-    const vatBase = (taxBaseValue || 0) + (importDuty || 0);
+    // 5. Comprehensive tax calculation
+    const importDuty = (enhancedTaxBaseValue || 0) * ((values.importDuty || 0) / 100);
+    const vatBase = (enhancedTaxBaseValue || 0) + (importDuty || 0);
     const vat = (vatBase || 0) * ((values.vat || 0) / 100);
-    const excise = (taxBaseValue || 0) * ((values.excise || 0) / 100);
+    const excise = (enhancedTaxBaseValue || 0) * ((values.excise || 0) / 100);
+
+    // 6. Calculate comprehensive subtotals
+    const cargoItemsSubtotal = cargoCosts.itemTotalCost;
+    const additionalServicesSubtotal = customsClearanceFee + documentationFee + thcFee + otherFees;
+    const subtotalBeforeTax = cargoItemsSubtotal + additionalServicesSubtotal;
 
     const totalTax = (importDuty || 0) + (vat || 0) + (excise || 0);
-    const grandTotal = (subtotal || 0) + (totalTax || 0);
+    const grandTotal = subtotalBeforeTax + totalTax;
+
+    // 7. Calculate margin and profitability
+    const sellingPrice = parseFloat(values.sellingPrice) || 0;
+    const margin = sellingPrice - grandTotal;
+    const marginPercentage = grandTotal > 0 ? (margin / grandTotal) * 100 : 0;
 
     return {
+      // Main totals
+      cargoItemsSubtotal: cargoItemsSubtotal || 0,
+      additionalServicesSubtotal: additionalServicesSubtotal || 0,
+      subtotalBeforeTax: subtotalBeforeTax || 0,
+      totalTax: totalTax || 0,
+      grandTotal: grandTotal || 0,
+
+      // Legacy support (for backward compatibility)
       customsClearanceFee: customsClearanceFee || 0,
       documentationFee: documentationFee || 0,
       thcFee: thcFee || 0,
       otherFees: otherFees || 0,
-      subtotal: subtotal || 0,
+      subtotal: subtotalBeforeTax || 0,
       importDuty: importDuty || 0,
       vat: vat || 0,
       excise: excise || 0,
-      totalTax: totalTax || 0,
-      grandTotal: grandTotal || 0,
-      cargoValueForTax: taxBaseValue || 0
+      cargoValueForTax: enhancedTaxBaseValue || 0,
+
+      // Enhanced cargo cost breakdowns
+      ...cargoCosts,
+
+      // Margin analysis
+      margin: margin || 0,
+      marginPercentage: marginPercentage || 0,
+
+      // Exchange rate info
+      exchangeRate: exchangeRate,
+
+      // Summary info
+      totalItems: cargoCosts.itemCount,
+      averageCostPerItem: cargoCosts.itemCount > 0 ? cargoCosts.itemTotalCost / cargoCosts.itemCount : 0
     };
   }, [values]);
 
@@ -1268,7 +1417,7 @@ const CargoDetailsTab = memo(({
 CargoDetailsTab.displayName = 'CargoDetailsTab';
 
 /**
- * Cost Calculation Tab Component
+ * Enhanced Cost Calculation Tab Component with Comprehensive Breakdown
  */
 const CostCalculationTab = memo(({
   values,
@@ -1282,63 +1431,107 @@ const CostCalculationTab = memo(({
 }) => {
   return (
     <Grid container spacing={2}>
-      <Grid item xs={12} md={6}>
+      {/* Enhanced Cargo Items Cost Breakdown */}
+      <Grid item xs={12} lg={6}>
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Cost Breakdown</Typography>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              📦 Cargo Items Cost Breakdown
+            </Typography>
 
             <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell align="right">Freight Cost</TableCell>
-                    <TableCell align="right">Insurance Cost</TableCell>
-                    <TableCell align="right">Total Cost</TableCell>
+                  <TableRow sx={{ backgroundColor: 'primary.light' }}>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Item</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Origin</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Freight</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Destination</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Additional</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Total</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {(values.cargoItems || []).map((item, index) => {
-                    const freightCost = item.currency === 'USD' ? (item.freightCostUSD || 0) : (item.freightCost || 0);
-                    const insuranceCost = item.currency === 'USD' ? (item.insuranceCostUSD || 0) : (item.insuranceCost || 0);
-                    const totalCost = freightCost + insuranceCost;
-                    const currencySymbol = item.currency === 'USD' ? '$' : 'IDR';
+                    const itemCurrency = item.currency || 'IDR';
+                    const isUSD = itemCurrency === 'USD';
+                    const exchangeRate = values.exchangeRate || 15000;
+
+                    // Calculate costs per item in IDR
+                    const originCosts = isUSD ?
+                      ((item.pickupChargeUSD || 0) + (item.exportDocumentationFeeUSD || 0) + (item.originTHCUSD || 0) + (item.vgmFeeUSD || 0)) * exchangeRate :
+                      (item.pickupCharge || 0) + (item.exportDocumentationFee || 0) + (item.originTHC || 0) + (item.vgmFee || 0);
+
+                    const freightCosts = isUSD ?
+                      ((item.basicFreightUSD || 0) + (item.bunkerSurchargeUSD || 0) + (item.securitySurchargeUSD || 0) + (item.warRiskSurchargeUSD || 0)) * exchangeRate :
+                      (item.basicFreight || 0) + (item.bunkerSurcharge || 0) + (item.securitySurcharge || 0) + (item.warRiskSurcharge || 0);
+
+                    const destinationCosts = isUSD ?
+                      ((item.importDocumentationFeeUSD || 0) + (item.destinationTHCUSD || 0) + (item.deliveryChargeUSD || 0)) * exchangeRate :
+                      (item.importDocumentationFee || 0) + (item.destinationTHC || 0) + (item.deliveryCharge || 0);
+
+                    const additionalCosts = isUSD ?
+                      ((item.storageFeeUSD || 0) + (item.detentionFeeUSD || 0) + (item.specialHandlingFeeUSD || 0) + (item.insuranceCostUSD || 0)) * exchangeRate :
+                      (item.storageFee || 0) + (item.detentionFee || 0) + (item.specialHandlingFee || 0) + (item.insuranceCost || 0);
+
+                    const itemTotal = originCosts + freightCosts + destinationCosts + additionalCosts;
 
                     return (
-                      <TableRow key={item.id || index}>
+                      <TableRow key={item.id || index} hover>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                             {item.description || `Item ${index + 1}`}
                           </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {currencySymbol}{(freightCost || 0).toLocaleString()}
+                          <Typography variant="caption" color="textSecondary">
+                            {item.weight}kg • {item.volume}cbm
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          <Typography variant="body2">
-                            {currencySymbol}{(insuranceCost || 0).toLocaleString()}
+                          <Typography variant="body2" color="secondary.main">
+                            {formatCurrency(originCosts, 'IDR')}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                            {currencySymbol}{(totalCost || 0).toLocaleString()}
+                          <Typography variant="body2" color="info.main">
+                            {formatCurrency(freightCosts, 'IDR')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" color="warning.main">
+                            {formatCurrency(destinationCosts, 'IDR')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" color="success.main">
+                            {formatCurrency(additionalCosts, 'IDR')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                            {formatCurrency(itemTotal, 'IDR')}
                           </Typography>
                         </TableCell>
                       </TableRow>
                     );
                   })}
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>TOTAL</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                      IDR {(totals.totalFreightCost || 0).toLocaleString()}
+
+                  {/* Summary Row */}
+                  <TableRow sx={{ backgroundColor: 'grey.100' }}>
+                    <TableCell sx={{ fontWeight: 'bold' }}>TOTAL CARGO COSTS</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'secondary.main' }}>
+                      {formatCurrency(totals.totalOriginCosts, 'IDR')}
                     </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                      IDR {(totals.totalInsuranceCost || 0).toLocaleString()}
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                      {formatCurrency(totals.totalFreightCosts, 'IDR')}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                      {formatCurrency(totals.totalDestinationCosts, 'IDR')}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                      IDR {(totals.subtotal || 0).toLocaleString()}
+                      {formatCurrency(totals.totalAdditionalCosts, 'IDR')}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                      {formatCurrency(totals.cargoItemsSubtotal, 'IDR')}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -1348,110 +1541,142 @@ const CostCalculationTab = memo(({
         </Card>
       </Grid>
 
-      <Grid item xs={12} md={6}>
+      {/* Enhanced Tax & Duty Calculation */}
+      <Grid item xs={12} lg={6}>
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Tax & Duty Calculation</Typography>
-
-            <TextField
-              fullWidth
-              label="Import Duty (%)"
-              type="number"
-              value={values.importDuty || 0}
-              onChange={(e) => handleFieldChange('importDuty', parseFloat(e.target.value) || 0)}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label="VAT (%)"
-              type="number"
-              value={values.vat || 11}
-              onChange={(e) => handleFieldChange('vat', parseFloat(e.target.value) || 0)}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label="Excise (%)"
-              type="number"
-              value={values.excise || 0}
-              onChange={(e) => handleFieldChange('excise', parseFloat(e.target.value) || 0)}
-              sx={{ mb: 2 }}
-            />
-
-            <Divider sx={{ my: 2 }} />
-
-            <Typography variant="body2" gutterBottom>Tax Calculation:</Typography>
-            <Typography variant="body2">
-              Import Duty: IDR {(totals.importDuty || 0).toLocaleString()}
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              🏛️ Tax & Duty Calculation
             </Typography>
-            <Typography variant="body2">
-              VAT: IDR {(totals.vat || 0).toLocaleString()}
-            </Typography>
-            <Typography variant="body2">
-              Excise: IDR {(totals.excise || 0).toLocaleString()}
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-              Total Tax: IDR {(totals.totalTax || 0).toLocaleString()}
-            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Import Duty (%)"
+                  type="number"
+                  value={values.importDuty || 0}
+                  onChange={(e) => handleFieldChange('importDuty', parseFloat(e.target.value) || 0)}
+                  InputProps={{
+                    endAdornment: <Typography variant="body2">%</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="VAT (%)"
+                  type="number"
+                  value={values.vat || 11}
+                  onChange={(e) => handleFieldChange('vat', parseFloat(e.target.value) || 0)}
+                  InputProps={{
+                    endAdornment: <Typography variant="body2">%</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Excise (%)"
+                  type="number"
+                  value={values.excise || 0}
+                  onChange={(e) => handleFieldChange('excise', parseFloat(e.target.value) || 0)}
+                  InputProps={{
+                    endAdornment: <Typography variant="body2">%</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="body2" gutterBottom>Additional Service Costs:</Typography>
-            <Typography variant="body2">
-              Customs Clearance: IDR {(totals.customsClearanceFee || 0).toLocaleString()}
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              Tax Base Calculation:
             </Typography>
-            <Typography variant="body2">
-              Documentation: IDR {(totals.documentationFee || 0).toLocaleString()}
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Cargo Value: {formatCurrency(totals.cargoValueForTax - (totals.totalFreightCosts + totals.totalAdditionalCosts), 'IDR')}
             </Typography>
-            <Typography variant="body2">
-              THC: IDR {(totals.thcFee || 0).toLocaleString()}
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Freight Costs: {formatCurrency(totals.totalFreightCosts, 'IDR')}
             </Typography>
-            <Typography variant="body2">
-              Other Fees: IDR {(totals.otherFees || 0).toLocaleString()}
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Additional Costs: {formatCurrency(totals.totalAdditionalCosts, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold' }}>
+              Total Tax Base: {formatCurrency(totals.cargoValueForTax, 'IDR')}
+            </Typography>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              Tax Breakdown:
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Import Duty ({values.importDuty || 0}%): {formatCurrency(totals.importDuty, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              VAT ({values.vat || 0}%): {formatCurrency(totals.vat, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Excise ({values.excise || 0}%): {formatCurrency(totals.excise, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold', color: 'error.main' }}>
+              Total Tax: {formatCurrency(totals.totalTax, 'IDR')}
             </Typography>
           </CardContent>
         </Card>
       </Grid>
 
-      <Grid item xs={12} md={6}>
+      {/* Additional Service Costs */}
+      <Grid item xs={12} lg={6}>
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Additional Service Costs</Typography>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              🔧 Additional Service Costs
+            </Typography>
 
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Customs Clearance Fee (IDR)"
-                  type="number"
-                  value={values.customsClearanceFee || 0}
-                  onChange={(e) => handleFieldChange('customsClearanceFee', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  label={`Customs Clearance Fee (${getCurrencySymbol(values.customsClearanceCurrency)})`}
+                  value={formatNumber(values.customsClearanceFee || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('customsClearanceFee', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(values.customsClearanceCurrency)}</Typography>
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Customs Clearance Fee (USD)"
-                  type="number"
-                  value={values.customsClearanceFeeUSD || 0}
-                  onChange={(e) => handleFieldChange('customsClearanceFeeUSD', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  value={formatNumber(values.customsClearanceFeeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('customsClearanceFeeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
                 />
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth sx={{ my: 2 }}>
               <InputLabel>Customs Clearance Currency</InputLabel>
               <Select
                 value={values.customsClearanceCurrency || 'IDR'}
                 onChange={(e) => handleFieldChange('customsClearanceCurrency', e.target.value)}
                 label="Customs Clearance Currency"
               >
-                <MenuItem value="IDR">IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">USD (Dollar)</MenuItem>
+                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
+                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
               </Select>
             </FormControl>
 
@@ -1459,34 +1684,44 @@ const CostCalculationTab = memo(({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Documentation Fee (IDR)"
-                  type="number"
-                  value={values.documentationFee || 0}
-                  onChange={(e) => handleFieldChange('documentationFee', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  label={`Documentation Fee (${getCurrencySymbol(values.documentationCurrency)})`}
+                  value={formatNumber(values.documentationFee || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('documentationFee', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(values.documentationCurrency)}</Typography>
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Documentation Fee (USD)"
-                  type="number"
-                  value={values.documentationFeeUSD || 0}
-                  onChange={(e) => handleFieldChange('documentationFeeUSD', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  value={formatNumber(values.documentationFeeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('documentationFeeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
                 />
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth sx={{ my: 2 }}>
               <InputLabel>Documentation Currency</InputLabel>
               <Select
                 value={values.documentationCurrency || 'IDR'}
                 onChange={(e) => handleFieldChange('documentationCurrency', e.target.value)}
                 label="Documentation Currency"
               >
-                <MenuItem value="IDR">IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">USD (Dollar)</MenuItem>
+                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
+                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
               </Select>
             </FormControl>
 
@@ -1494,34 +1729,44 @@ const CostCalculationTab = memo(({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="THC Fee (IDR)"
-                  type="number"
-                  value={values.thcFee || 0}
-                  onChange={(e) => handleFieldChange('thcFee', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  label={`THC Fee (${getCurrencySymbol(values.thcCurrency)})`}
+                  value={formatNumber(values.thcFee || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('thcFee', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(values.thcCurrency)}</Typography>
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="THC Fee (USD)"
-                  type="number"
-                  value={values.thcFeeUSD || 0}
-                  onChange={(e) => handleFieldChange('thcFeeUSD', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  value={formatNumber(values.thcFeeUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('thcFeeUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
                 />
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth sx={{ my: 2 }}>
               <InputLabel>THC Currency</InputLabel>
               <Select
                 value={values.thcCurrency || 'IDR'}
                 onChange={(e) => handleFieldChange('thcCurrency', e.target.value)}
                 label="THC Currency"
               >
-                <MenuItem value="IDR">IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">USD (Dollar)</MenuItem>
+                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
+                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
               </Select>
             </FormControl>
 
@@ -1529,80 +1774,169 @@ const CostCalculationTab = memo(({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Other Fees (IDR)"
-                  type="number"
-                  value={values.otherFees || 0}
-                  onChange={(e) => handleFieldChange('otherFees', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  label={`Other Fees (${getCurrencySymbol(values.otherFeesCurrency)})`}
+                  value={formatNumber(values.otherFees || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('otherFees', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>{getCurrencySymbol(values.otherFeesCurrency)}</Typography>
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Other Fees (USD)"
-                  type="number"
-                  value={values.otherFeesUSD || 0}
-                  onChange={(e) => handleFieldChange('otherFeesUSD', parseFloat(e.target.value) || 0)}
-                  sx={{ mb: 2 }}
+                  value={formatNumber(values.otherFeesUSD || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('otherFeesUSD', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>$</Typography>
+                  }}
                 />
               </Grid>
             </Grid>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth sx={{ my: 2 }}>
               <InputLabel>Other Fees Currency</InputLabel>
               <Select
                 value={values.otherFeesCurrency || 'IDR'}
                 onChange={(e) => handleFieldChange('otherFeesCurrency', e.target.value)}
                 label="Other Fees Currency"
               >
-                <MenuItem value="IDR">IDR (Rupiah)</MenuItem>
-                <MenuItem value="USD">USD (Dollar)</MenuItem>
+                <MenuItem value="IDR">🇮🇩 IDR (Rupiah)</MenuItem>
+                <MenuItem value="USD">🇺🇸 USD (Dollar)</MenuItem>
               </Select>
             </FormControl>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              Additional Services Summary:
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Customs Clearance: {formatCurrency(totals.customsClearanceFee, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Documentation: {formatCurrency(totals.documentationFee, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              THC: {formatCurrency(totals.thcFee, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Other Fees: {formatCurrency(totals.otherFees, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold' }}>
+              Subtotal: {formatCurrency(totals.additionalServicesSubtotal, 'IDR')}
+            </Typography>
           </CardContent>
         </Card>
       </Grid>
 
-      <Grid item xs={12} md={6}>
+      {/* Enhanced Financial Summary */}
+      <Grid item xs={12} lg={6}>
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Financial Summary</Typography>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              💰 Financial Summary & Analysis
+            </Typography>
 
-            <TextField
-              fullWidth
-              label="Estimated Cost (IDR)"
-              type="number"
-              value={values.estimatedCost || totals.grandTotal}
-              onChange={(e) => handleFieldChange('estimatedCost', e.target.value)}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label="Selling Price (IDR)"
-              type="number"
-              value={values.sellingPrice || 0}
-              onChange={(e) => {
-                handleFieldChange('sellingPrice', e.target.value);
-              }}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label="Margin (IDR)"
-              type="number"
-              value={values.margin || 0}
-              disabled
-              helperText="Auto-calculated when selling price or estimated cost changes"
-            />
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Selling Price"
+                  value={formatNumber(values.sellingPrice || 0)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('sellingPrice', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>Rp</Typography>
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Estimated Cost"
+                  value={formatNumber(values.estimatedCost || totals.grandTotal)}
+                  onChange={(e) => {
+                    const cleanedValue = formatCurrencyInput(e.target.value);
+                    const numericValue = parseFloat(cleanedValue) || 0;
+                    handleFieldChange('estimatedCost', numericValue);
+                  }}
+                  InputProps={{
+                    startAdornment: <Typography variant="body2" sx={{ mr: 1 }}>Rp</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="body2" gutterBottom>Grand Total:</Typography>
-            <Typography variant="h6" color="primary">
-              IDR {(totals.grandTotal || 0).toLocaleString()}
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              Cost Breakdown:
             </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Cargo Items: {formatCurrency(totals.cargoItemsSubtotal, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Additional Services: {formatCurrency(totals.additionalServicesSubtotal, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Subtotal: {formatCurrency(totals.subtotalBeforeTax, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Total Tax: {formatCurrency(totals.totalTax, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold', fontSize: '1.1em' }}>
+              Grand Total: {formatCurrency(totals.grandTotal, 'IDR')}
+            </Typography>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              Margin Analysis:
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Selling Price: {formatCurrency(values.sellingPrice || 0, 'IDR')}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Total Cost: {formatCurrency(totals.grandTotal, 'IDR')}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                mb: 2,
+                fontWeight: 'bold',
+                color: totals.margin >= 0 ? 'success.main' : 'error.main'
+              }}
+            >
+              Margin: {formatCurrency(totals.margin, 'IDR')} ({formatNumber(totals.marginPercentage, 2)}%)
+            </Typography>
+
+            {totals.itemCount > 0 && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  Per Item Analysis:
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Total Items: {totals.itemCount}
+                </Typography>
+                <Typography variant="body2">
+                  Average Cost per Item: {formatCurrency(totals.averageCostPerItem, 'IDR')}
+                </Typography>
+              </>
+            )}
           </CardContent>
         </Card>
       </Grid>
